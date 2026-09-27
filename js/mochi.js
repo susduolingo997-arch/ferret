@@ -109,7 +109,7 @@
   M.checkStart = function () {
     const g = game(), s = S(), e = G.env || {};
     if (Q() || g.busy || G.UI.dialogueOpen || g.state !== 'play') return;
-    if (![2, 3, 4, 6].includes(s.chapter) || e.night > 0.45 || g.hasItem('musicbox')) return;
+    if (!([2, 3, 4, 6].includes(s.chapter) || s.chapter >= 10) || e.night > 0.45 || g.hasItem('musicbox')) return;
     if (!e.area || e.area.zone !== 'house' || s.playTime - (M.chapterClock || 0) < 45) return;
     this.carrier.visible = true; G.World.col.carrier.on = true; g.hashC(G.World.col.carrier);
     A.play('door'); setTimeout(() => A.play('thud', 0.4), 700);

@@ -388,8 +388,8 @@
     const s = S(), c = s.chapter, e = G.env || {}, day = (e.night || 0) < 0.55;
     if (SEQ.running || s.chapter === 7 || game().state === 'title') return false;
     if (!day) return false;
-    if (id === 'mum') return [2, 3, 4, 6].includes(c);
-    return [4, 6].includes(c) || (c === 2 && !!(s.quests || {}).mochi);
+    if (id === 'mum') return [2, 3, 4, 6].includes(c) || c >= 10;
+    return [4, 6].includes(c) || c >= 10 || (c === 2 && !!(s.quests || {}).mochi);
   }
   function homeTick(id, dt) {
     const h = C[id], g = game(), pl = g.player; if (C.chaser === h) return;
@@ -424,7 +424,7 @@
         ['ellie', q.mochi === 'done' ? 'You and Mochi are best friends now. I’m a little bit jealous. A little.' : 'I wish I could go on adventures like you. Where do you even GO all day?', 'think'],
       ])];
       const opts = [{ t: 'Do a happy war dance', then: [{ do: () => { game().player.dance(2.4); h.pose = 'laugh'; setTimeout(() => (h.pose = 'idle'), 2200); } }, ['ellie', 'Hahaha! Do the dance again! Mum, MUM, he’s doing the dance!', 'happy']] }];
-      if (c === 6 && !has('tripDone') && !has('tripStarted')) opts.unshift({ t: 'Ask about the suitcase by the door', then: [['ellie', 'We’re going on a ROAD TRIP to see Grandpa Arlo! And you and Mochi are coming too! We leave right now!', 'happy'], { do: () => setTimeout(() => startTrip(false), 400) }] });
+      if (G.isPost(c) && !has('tripDone') && !has('tripStarted')) opts.unshift({ t: 'Ask about the suitcase by the door', then: [['ellie', 'We’re going on a ROAD TRIP to see Grandpa Arlo! And you and Mochi are coming too! We leave right now!', 'happy'], { do: () => setTimeout(() => startTrip(false), 400) }] });
       opts.push({ t: 'Steal her sock and run!', then: [['ellie', 'Hey! My SOCK! Come back here, you little thief!', 'surprised'], { do: () => startChase(h, 'sock') }] });
       return game().say([...lines, { choice: opts }]);
     }
@@ -718,10 +718,10 @@
       const sitting = s.chapter === 6 && g.state === 'cutscene' && !SEQ.running;
       if (sitting) { be.root.position.set(0, -0.12, 0.25); be.root.rotation.set(0, 0, 0); be.pose = 'sitbed'; } else { be.root.position.set(0, 0.02, 0.62); be.root.rotation.set(-Math.PI / 2, 0, 0); be.pose = 'lie'; }
       G.World.obj.ellieTorso.visible = false;
-      if (s.chapter === 6 && !sitting && (G.env.night || 0) < 0.55) ellieGrp.visible = false;
+      if (G.isPost(s.chapter) && !sitting && (G.env.night || 0) < 0.55) ellieGrp.visible = false;
       be.update(dt, {});
     }
-    if (s.chapter === 6 && (G.env.night || 0) >= 0.55 && g.state === 'play') ellieGrp.visible = true;
+    if (G.isPost(s.chapter) && (G.env.night || 0) >= 0.55 && g.state === 'play') ellieGrp.visible = true;
     // the family at home
     if (st === 'play' || st === 'menu') { homeTick('mum', dt); homeTick('ellie', dt); }
     for (const id of ['ellie', 'mum']) { const h = C[id]; if (h.chase) chaseTick(h, dt); }

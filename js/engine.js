@@ -5,6 +5,8 @@
    ===================================================================== */
 'use strict';
 const G = (window.G = window.G || {});
+/* chapters after the music box: the epilogue (6) and the sequel chapters (10+) */
+G.isPost = (c) => c === 6 || c >= 10;
 
 /* ---------------------------------------------------------------- Utils */
 G.U = {

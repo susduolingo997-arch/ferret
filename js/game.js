@@ -16,7 +16,7 @@
     (() => { try { return JSON.parse(U.storage.get(SET_KEY) || '{}'); } catch (e) { return {}; } })());
   function saveSettings() { U.storage.set(SET_KEY, JSON.stringify(G.settings)); A.applyVolumes(); }
 
-  const CHAPTERS = G.CHAPTERS = { 7: ['Bonus Chapter', 'The Failed Road Trip'], 1: ['Chapter One', 'The Noise'], 2: ['Chapter Two', 'The Trail'], 3: ['Chapter Three', 'The Forest'], 4: ['Chapter Four', 'The Mystery'], 5: ['Chapter Five', 'Home'], 6: ['Epilogue', 'The Hidden Path'] };
+  const CHAPTERS = G.CHAPTERS = Object.assign(G.CHAPTERS || {}, { 7: ['Bonus Chapter', 'The Failed Road Trip'], 1: ['Chapter One', 'The Noise'], 2: ['Chapter Two', 'The Trail'], 3: ['Chapter Three', 'The Forest'], 4: ['Chapter Four', 'The Mystery'], 5: ['Chapter Five', 'Home'], 6: ['Epilogue', 'The Hidden Path'] });
   const NAMES = G.NAMES = { milo: 'Milo', pip: 'Pip', nora: 'Nora', bram: 'Bram', tilly: 'Tilly', moss: 'Moss', ellie: 'Ellie' };
   const NPC_R = { pip: 0.22, nora: 0.3, bram: 0.5, tilly: 0.26, moss: 0.24 };
 
@@ -261,7 +261,7 @@
       const S = this.S, f = S.flags, c = S.chapter, O = W.obj, C = W.col;
       const setCol = (n, on) => { if (C[n]) C[n].on = on; };
       setCol('petFlap', c < 2); setCol('garageGap', c < 2); O.garageStick.visible = c >= 2;
-      O.ellie.visible = c === 1 || c === 5 || c === 6; O.ellieTorso.rotation.x = c === 6 ? -0.15 : -Math.PI / 2 + 0.15; O.ellieTorso.position.set(0, c === 6 ? 0.05 : 0.1, c === 6 ? 0.1 : 0.2);
+      O.ellie.visible = c === 1 || c === 5 || G.isPost(c); O.ellieTorso.rotation.x = c === 6 ? -0.15 : -Math.PI / 2 + 0.15; O.ellieTorso.position.set(0, c === 6 ? 0.05 : 0.1, c === 6 ? 0.1 : 0.2);
       O.quilt.position.y = 0.73;
       // crate
       if (f.crateMoved) { O.crate.position.z = 1.3; C.crate.z0 = 0.9; C.crate.z1 = 1.7; } else { O.crate.position.z = 0; C.crate.z0 = -0.4; C.crate.z1 = 0.4; } this.hashC(C.crate);
@@ -734,7 +734,7 @@
       // collide with walls and furniture
       const t = this.rayBoxes(tgt, want); c.clear = c.clear === undefined ? t : (t < c.clear ? t : U.damp(c.clear, t, 2.5, dt)); if (c.snap) c.clear = t;
       if (c.clear < 1) want = tgt.clone().lerp(want, Math.max(0.05, c.clear - 0.06 / dist));
-      const floor = (p.pos.y < UG + 12 ? (p.inTunnel ? p.floorY : UG) : 0) + 0.07; if (want.y < floor) want.y = floor;
+      const floor = (p.inTunnel ? p.floorY : W.groundAt(want.x, p.pos.y, want.z)) + 0.07; if (want.y < floor) want.y = floor;
       if (p.inTunnel) { const q = this.tunnelClamp(want.x, want.z, 0.36); if (q) { want.x = q.x; want.z = q.z; want.y = U.clamp(want.y, q.y + 0.1, q.y + 0.55); } }
       c.dist = dist;
       if (c.snap) { cam.position.copy(want); c.look.copy(tgt); c.snap = false; }
@@ -907,9 +907,9 @@
       this.pos.x = nx; this.resolve(R, PH, mag > 0.3); this.pos.z = nz; this.resolve(R, PH, mag > 0.3);
       // tunnels
       const ug = this.pos.y < UG + 12;
-      const inBase = this.pos.x > -5.95 && this.pos.x < 8 && this.pos.z > -5 && this.pos.z < 5;
+      const inBase = W.openUGAt(this.pos.x, this.pos.z);
       this.inTunnel = ug && !inBase;
-      let base = ug ? UG : 0;
+      let base = W.groundAt(this.pos.x, this.pos.y, this.pos.z);
       if (this.inTunnel) { const q = g.tunnelClamp(this.pos.x, this.pos.z); if (q) { this.pos.x = q.x; this.pos.z = q.z; base = q.y; this.floorY = q.y; } }
       // ground height from walkable colliders underfoot
       let ground = base, over = 9;
@@ -933,11 +933,11 @@
         this.pos.y = ny;
       } else { this.pos.y = ground; this.vy = 0; this.grounded = true; }
       // hazards (water): respawn safely with a splash
-      if (this.grounded && !ug && this.pos.y < 0.12) {
-        const hz = W.hazards.find((h) => (h.type === 'rect' ? this.pos.x > h.x0 && this.pos.x < h.x1 && this.pos.z > h.z0 && this.pos.z < h.z1 : (this.pos.x - h.x) ** 2 + (this.pos.z - h.z) ** 2 < h.r * h.r));
+      if (this.grounded) {
+        const hz = W.hazards.find((h) => !h.off && this.pos.y < (h.y || (ug ? UG : 0)) + 0.12 && this.pos.y > (h.y || (ug ? UG : 0)) - 3 && (h.type === 'rect' ? this.pos.x > h.x0 && this.pos.x < h.x1 && this.pos.z > h.z0 && this.pos.z < h.z1 : (this.pos.x - h.x) ** 2 + (this.pos.z - h.z) ** 2 < h.r * h.r));
         if (hz) { A.play('splash'); g.particles.burst(V3(this.pos.x, 0.1, this.pos.z), 24, 0xcfe6f0, 'splash'); UI.toast('<b>Splash!</b>', null, 'Brr! Ferrets are not fond of swimming.'); if (this.safe) this.teleport(this.safe.x, this.safe.y, this.safe.z, this.yaw); g.cam.snap = false; this.act('shake', 1.1); return; }
       }
-      if (this.pos.y < (ug ? UG - 5 : -5)) { if (this.safe) this.teleport(this.safe.x, this.safe.y, this.safe.z, this.yaw); }
+      if (this.pos.y < base - 5 || this.pos.y < (ug ? UG - 12 : -12)) { if (this.safe) this.teleport(this.safe.x, this.safe.y, this.safe.z, this.yaw); }
       this.safeT -= dt; if (this.grounded && this.safeT <= 0) { this.safeT = 0.5; this.safe = this.pos.clone(); }
       // visuals
       this.vis.x = this.pos.x; this.vis.z = this.pos.z; this.vis.y = U.damp(this.vis.y, this.pos.y, this.grounded ? 22 : 60, dt);
@@ -1063,7 +1063,7 @@
   }
 
   /* ================================================================ UI */
-  const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', '❧', '★'];
+  const ROMAN = (G.ROMAN = Object.assign(G.ROMAN || [], ['', 'I', 'II', 'III', 'IV', 'V', '❧', '★']));
   const UI = (G.UI = {
     dialogueOpen: false, panel: null, cardOpen: false, history: [],
     init() {

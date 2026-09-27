@@ -154,13 +154,13 @@
   };
 
   /* Batch static meshes that share a material into one mesh per 32 m cell: far fewer draw calls. */
-  function mergeStatic() {
-    root.updateMatrixWorld(true);
+  function mergeStatic(top) {
+    const root0 = root; top = top || root; root.updateMatrixWorld(true);
     const keep = new Set(); for (const k in W.obj) W.obj[k].traverse((o) => keep.add(o));
     const groups = new Map(), victims = [];
-    root.traverse((o) => {
+    top.traverse((o) => {
       if (!o.isMesh || keep.has(o) || Array.isArray(o.material) || o.isInstancedMesh) return;
-      for (let p = o; p && p !== root; p = p.parent) if (p.userData.dynamic || keep.has(p)) return;
+      for (let p = o; p && p !== top; p = p.parent) if (p.userData.dynamic || keep.has(p) || p.userData.region) return;
       const g = o.geometry; if (!g.attributes.position || !g.attributes.normal || !g.attributes.uv) return;
       const c = new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
       const key = o.material.uuid + '|' + o.castShadow + '|' + o.receiveShadow + '|' + o.renderOrder + '|' + Math.floor(c.x / 32) + ',' + Math.floor(c.y / 20) + ',' + Math.floor(c.z / 32);
@@ -174,17 +174,21 @@
       const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2); let off = 0;
       for (const g of parts) { pos.set(g.attributes.position.array, off * 3); nor.set(g.attributes.normal.array, off * 3); uv.set(g.attributes.uv.array, off * 2); off += g.attributes.position.count; g.dispose(); }
       const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); mg.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); mg.computeBoundingSphere();
-      const m = new THREE.Mesh(mg, grp.mat); m.castShadow = grp.cast; m.receiveShadow = grp.recv; m.renderOrder = grp.ro; m.matrixAutoUpdate = false; root.add(m);
+      const m = new THREE.Mesh(mg, grp.mat); m.castShadow = grp.cast; m.receiveShadow = grp.recv; m.renderOrder = grp.ro; m.matrixAutoUpdate = false; top.add(m);
       for (const o of grp.list) o.parent.remove(o);
       merged += grp.list.length;
     }
-    W.mergedCount = merged;
+    W.mergedCount = (W.mergedCount || 0) + merged;
   }
+  W.mergeStatic = (g) => { g.traverse((o) => { if (o.isMesh && !o.userData.dynamic) { o.updateMatrix(); o.matrixAutoUpdate = false; } }); mergeStatic(g); };
 
   function buildGround() {
     const town = plane(-50.2, 92, -32, 66, 0, 'grass', 6); town.name = 'townGround';
     const forest = plane(-140, -50, -70, 80, 0, 'forestfloor', 7);
-    plane(-200, 220, -160, 200, -0.03, M.std('farground', { color: 0x3d5230, rough: 1 }), 50);
+    // the far ground leaves room for the sequel's terrain (Far Wood, Wren Cottage, the meadow, the mountains)
+    const fg = M.std('farground', { color: 0x3d5230, rough: 1 });
+    plane(-200, 220, -30.5, 200, -0.03, fg, 50); plane(-200, -50, -70, -30.5, -0.03, fg, 50); plane(30, 220, -70, -30.5, -0.03, fg, 50);
+    plane(-200, -150, -172, -70, -0.03, fg, 50); plane(30, 220, -172, -70, -0.03, fg, 50);
     W.noGrass.push([-8.2, 8.2, -6.2, 6.2], [8, 14.2, -2.2, 6.2]);
   }
 
@@ -600,14 +604,18 @@
 
   /* ================================================================ PARK + PLAYGROUND + POND */
   function buildPark() {
-    fence(-30, 28, 0, 28, 0.9, [], { rail: true }); fence(4, 28, 40, 28, 0.9); fence(40, 28, 40, 64, 0.9); fence(-30, 64, 40, 64, 0.9);
+    fence(-30, 28, 0, 28, 0.9, [], { rail: true }); fence(4, 28, 40, 28, 0.9); fence(40, 28, 40, 64, 0.9); fence(-30, 64, 40, 64, 0.9, [[9, 12, 2]]);
+    // an arch over the south gate to Birch Lane
+    for (const ax of [8.85, 12.15]) cyl({ r: 0.07, h: 2.3, x: ax, z: 64, mat: 'whitewood', col: true });
+    box({ w: 3.6, h: 0.12, d: 0.14, x: 10.5, y: 2.3, z: 64, mat: 'whitewood', col: false });
+    for (let i = 0; i < 9; i++) W.flowers.push([8.8 + (i % 2) * 0.1, 64.2 + (i - 4) * 0.12, 0xe7a0b0]);
     // west hedge with the hidden ferret passage
     hedge(-30, 28, -30, 64, 2.2, 1.4, [[49.4, 50.6, 0.36]]);
     collider(-30.8, -29.2, 49.4, 50.6, 0, 0.36, { name: 'hedgeGap' });
     // paths
     const pm = M.std('gravel', { map: 'dirt', color: 0xd8c8a8, rough: 1 });
     const path = (x0, z0, x1, z1, w) => { const len = Math.hypot(x1 - x0, z1 - z0), a = Math.atan2(x1 - x0, z1 - z0); const g = new THREE.PlaneGeometry(w, len); g.rotateX(-Math.PI / 2); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 2, uv.getY(i) * len / 2); const m = new THREE.Mesh(g, pm); m.position.set((x0 + x1) / 2, 0.012, (z0 + z1) / 2); m.rotation.y = a; m.receiveShadow = true; root.add(m); const n = Math.ceil(len / 1.5); for (let i = 0; i <= n; i++) W.noGrass.push(['c', U.lerp(x0, x1, i / n), U.lerp(z0, z1, i / n), w * 0.6]); };
-    W.parkPath = path;
+    W.parkPath = path; path(10.5, 58, 10.5, 66, 1.6);
     path(2, 26, 2, 36, 2.2); path(2, 36, 18, 42, 2); path(2, 36, -12, 42, 2); path(-12, 42, -22, 50, 1.6); path(-22, 50, -29, 50, 1.2); path(18, 42, 20, 56, 2); path(20, 56, 0, 58, 2); path(0, 58, -12, 56, 1.8);
     // big oak (Pip's tree)
     W.trees.push([0, 38.5, 2.1, 'oak']);
@@ -668,7 +676,9 @@
   /* ================================================================ FOREST */
   function buildForest() {
     // bounds
-    collider(-141, -140, -70, 80, 0, 6, { cam: false }); collider(-140, -50, -71, -70, 0, 6, { cam: false }); collider(-140, -50, 80, 81, 0, 6, { cam: false });
+    collider(-141, -140, -70, 80, 0, 6, { cam: false }); collider(-140, -88, -71, -70, 0, 6, { cam: false }); collider(-72, -50, -71, -70, 0, 6, { cam: false }); collider(-140, -50, 80, 81, 0, 6, { cam: false });
+    // the creek keeps going north: a bramble thicket hides the way until the sequel opens it
+    collider(-88, -72, -71.2, -69.8, 0, 3, { name: 'farThicket', cam: false });
     // the trail (dirt ribbon)
     const trail = [[-50, 50], [-58, 48], [-66, 40], [-72, 29], [-77.5, 22], [-82.5, 22], [-88, 18], [-94, 13], [-100, 10], [-102, -4], [-107, -13], [-107, -15.6]];
     const branch = [[-100, 10], [-108, 24], [-116, 36], [-118, 40]];
@@ -867,6 +877,12 @@
     area('deep', 'Juniper’s Tunnels', -41, -20, -18, -2, { ug: true, zone: 'under', surf: 'dirt', dark: true });
   }
 
+  /* ground height: terrain patches (surface or underground) or the flat default */
+  W.terrains = []; W.openUG = [[-5.95, 8, -5, 5]];
+  W.terrainAt = function (x, z, ug) { for (const t of W.terrains) if (!!t.ug === ug && x >= t.x0 && x <= t.x1 && z >= t.z0 && z <= t.z1) { const h = t.h(x, z); if (h !== null) return h; } return null; };
+  W.groundAt = function (x, y, z) { const ug = y < UG + 12; const t = W.terrainAt(x, z, ug); return t === null ? (ug ? UG : 0) : t; };
+  W.groundY = (x, z) => { const t = W.terrainAt(x, z, false); return t === null ? 0 : t; };
+  W.openUGAt = (x, z) => W.openUG.some((r) => x > r[0] && x < r[1] && z > r[2] && z < r[3]);
   W.h = { box, cyl, sph, plane, disc, area, light, collider, wall, fence, hedge, blob, tunnel, windowAt, doorPanel, roofPrism };
   function buildAreas() {
     area('forest', 'Hollow Wood', -140, -50, -70, 80, { zone: 'forest', surf: 'leaves' });
@@ -876,7 +892,7 @@
   /* area lookup: most specific (first registered) wins; underground areas only below y=-20 */
   W.areaAt = function (x, y, z) {
     const ug = y < UG + 12;
-    for (const a of W.areas) { if (!!a.ug !== ug) continue; if (x >= a.x0 && x <= a.x1 && z >= a.z0 && z <= a.z1) return a; }
+    for (const a of W.areas) { if (!!a.ug !== ug) continue; if (a.y0 !== undefined && (y < a.y0 || y >= a.y1)) continue; if (x >= a.x0 && x <= a.x1 && z >= a.z0 && z <= a.z1) return a; }
     return ug ? W.areas.find((a) => a.id === 'tunnelA') : W.areas[W.areas.length - 1];
   };
   W.surfaceAt = function (x, y, z, a) {
@@ -932,7 +948,6 @@
      Everything is split into cells so the graphics system can cull by
      frustum and distance and swap in lower-detail geometry far away. */
   W.lod = [];
-  W.groundY = (x, z) => 0;
   function chunked(scene, geo, mat, items, place, o = {}) {
     const cell = o.cell || 48, groups = new Map();
     for (const it of items) { const k = Math.floor(it[0] / cell) + ',' + Math.floor(it[o.zi || 1] / cell); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it); }
@@ -978,9 +993,10 @@
     const pineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: G.Tex.get('foliage') }); windify(pineMat, 0.06); pineMat.userData.outdoor = true;
     const pineHi = new THREE.ConeGeometry(1, 1, 12, 2); pineHi.translate(0, 0.5, 0); { const p = pineHi.attributes.position; for (let i = 0; i < p.count; i++) if (p.getY(i) < 0.05) p.setY(i, p.getY(i) - 0.12); pineHi.computeVertexNormals(); }
     const pineLo = new THREE.ConeGeometry(1, 1, 6); pineLo.translate(0, 0.5, 0);
+    W.pineMat = pineMat; W.pineGeo = [pineHi, pineLo]; W.trunkGeo = trunkGeo;
     chunked(scene, null, pineMat, pineBlobs, ([x, z, y, r, h, ry, l], m4, cl) => { m4.compose(V3(x, y, z), q4.setFromEuler(e.set(0, ry, 0)), V3(r, h, r)); cl.set(0x3d5a3a).offsetHSL((l - 0.5) * 0.03, 0, (l - 0.5) * 0.06); }, { cls: 'tree', color: true, hiGeo: pineHi, lo: pineLo, loD: 60 });
     // --- bushes
-    const bushM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: G.Tex.get('foliage') }); windify(bushM, 0.05); bushM.userData.outdoor = true;
+    const bushM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: G.Tex.get('foliage') }); windify(bushM, 0.05); bushM.userData.outdoor = true; W.bushMat = bushM;
     W.bushes.forEach(([x, y, z, s, c, solid]) => { if (solid && s > 0.6) collider(x - s * 0.5, x + s * 0.5, z - s * 0.5, z + s * 0.5, 0.25, 1, { cam: false }); });
     chunked(scene, null, bushM, W.bushes.map((b) => [b[0], b[2], b[1], b[3], b[4], rng(), rng(), rng(), rng()]), ([x, z, y, s, c, a, b2, c2, l], m4, cl) => { m4.compose(V3(x, y + gy(x, z), z), q4.setFromEuler(e.set(a * 6, b2 * 6, c2 * 6)), V3(s, s * 0.75, s)); cl.set(c).offsetHSL(0, 0, (l - 0.5) * 0.08); }, { cls: 'small', color: true, hiGeo: W.canopyGeo[1], lo: W.canopyGeo[0], loD: 45 });
     // --- rocks
@@ -993,7 +1009,7 @@
     }
     // --- ferns & reeds
     const fernGeo = new THREE.PlaneGeometry(0.16, 0.7, 1, 3); fernGeo.translate(0, 0.35, 0); { const p = fernGeo.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i); p.setZ(i, y * y * 0.5); } fernGeo.computeVertexNormals(); }
-    const fernMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, side: THREE.DoubleSide, map: G.Tex.get('foliage') }); windify(fernMat, 0.2, true); fernMat.userData.outdoor = true;
+    const fernMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, side: THREE.DoubleSide, map: G.Tex.get('foliage') }); windify(fernMat, 0.2, true); fernMat.userData.outdoor = true; W.fernMat = fernMat; W.fernGeo = fernGeo; W.rockGeo = rockGeo;
     chunked(scene, fernGeo, fernMat, W.ferns.map((f) => [f[0], f[1], f[2], f[3], rng(), rng(), rng(), rng(), rng()]), ([x, z, s, kind, r1, r2, r3, r4, r5], m4, cl, k) => {
       const fronds = kind === 'reed' ? 3 : 5; if (k >= fronds) return false; const a = (k / fronds) * 6.28 + [r1, r2, r3, r4, r5][k];
       m4.compose(V3(x, gy(x, z), z), q4.setFromEuler(e.set(kind === 'reed' ? 0 : 0.5 + r2 * 0.3, a, 0, 'YXZ')), V3(s * (kind === 'reed' ? 0.3 : 1), s * (kind === 'reed' ? 1.9 : 1), s)); cl.set(kind === 'reed' ? 0x8a9a4a : 0x5a7a3a).offsetHSL(0, 0, (r3 - 0.5) * 0.1);
@@ -1007,6 +1023,9 @@
     buildGrass(scene, G.GFX ? G.GFX.grassDensity || 1 : 1);
   }
   W.setTreeDetail = function (lvl) { const g = W.canopyGeo[Math.min(2, Math.max(1, lvl))]; for (const c of W.canopyChunks || []) { if (c.mesh.geometry === c.hi) c.mesh.geometry = g; c.hi = g; } };
+  W.windify = (m, a, t) => windify(m, a, t);
+  W.withRoot = (g, fn) => { const old = root; root = g; try { fn(); } finally { root = old; } };
+  W.grassAllowed = (x, z) => grassAllowed(x, z);
   W.forestTint = (x) => (x < -50 ? [0x4d6e36, 0x5a7a3a, 0x6b7a35, 0x8a8a3a][Math.floor(rng() * 4)] : [0x55743a, 0x5f8a3a, 0x4d6e36][Math.floor(rng() * 3)]);
   W.windU = { value: 0.3 }; W.timeU = { value: 0 }; W.playerU = { value: new THREE.Vector3() };
   function windify(m, amt, tip) {
@@ -1036,7 +1055,7 @@
     blade.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
     blade.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0.3, 0, 1, 0.3, 0, 1, 0.3, 0, 1, 0.3, 0, 1, 0.3], 3));
     blade.setAttribute('color', new THREE.Float32BufferAttribute([0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.92, 0.94, 0.84], 3));
-    blade.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4]);
+    blade.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4]); W.bladeGeo = blade;
     const mat = W.grassMat || new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, vertexColors: true, side: THREE.DoubleSide });
     mat.envMapIntensity = 0.35; mat.userData.outdoor = true;
     if (!W.grassMat) mat.onBeforeCompile = (sh) => {
