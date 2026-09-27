@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ferret: The Hidden Path</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Atkinson+Hyperlegible:wght@400;700&family=Patrick+Hand&display=swap">
+<link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+<div id="app">
+  <canvas id="cv" aria-label="Game view"></canvas>
+  <div id="scentVeil"></div>
+  <div id="letterbox"><i></i><i></i></div>
+
+  <!-- HUD: kept to the edges -->
+  <div id="hud" class="off">
+    <div id="objective" hidden><span class="ch">I</span><div><div class="txt"></div><div class="sub"></div></div></div>
+    <div id="location"><span class="d"></span><span class="n"></span></div>
+    <div id="prompt"><kbd>E</kbd><span></span></div>
+    <div id="scent" title="Scent (Q)">
+      <svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="18" class="bg"/><circle id="scentRing" cx="22" cy="22" r="18" class="fg"/></svg>
+      <svg class="nose" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13c0-4 3-7 7-7s7 3 7 7c0 2-2 4-4 4-1 0-2-.6-3-.6s-2 .6-3 .6c-2 0-4-2-4-4z"/><circle cx="9.5" cy="13" r="1.3"/><circle cx="14.5" cy="13" r="1.3"/></svg>
+      <b>Q</b>
+    </div>
+    <div id="status"><span id="hiddenChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><path d="M4 20 20 4" class="slash"/></svg>Hidden</span><span id="weatherChip" hidden></span></div>
+    <div id="scentArrow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 12h-5v8h-4v-8H5z"/></svg><span></span></div>
+    <div id="toasts"></div>
+    <div id="saveBlip">Saved</div>
+  </div>
+
+  <!-- Dialogue -->
+  <div id="dialogue" hidden>
+    <div id="dlgBox">
+      <div class="por"><img id="dlgPortrait" alt=""><span id="dlgExpr"></span></div>
+      <div class="body">
+        <div id="dlgName"></div>
+        <p id="dlgText"></p>
+        <div id="dlgChoices"></div>
+        <span class="more" aria-hidden="true"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chapter title card -->
+  <div id="chapterCard" hidden><div class="rn"></div><div class="num"></div><div class="title"></div></div>
+
+  <!-- Title screen -->
+  <div id="title" hidden>
+    <div class="lockup">
+      <p class="over">A cozy mystery</p>
+      <h1>Ferret</h1>
+      <p class="sub">The Hidden Path</p>
+      <nav>
+        <button id="btnNew" class="tbtn">New Game<small>Start Milo's story</small></button>
+        <button id="btnContinue" class="tbtn">Continue<small></small></button>
+        <button id="btnTrip" class="tbtn">Road Trip<small>Bonus chapter</small></button>
+        <button id="btnLoad" class="tbtn">Load Game</button>
+        <button id="btnSettings" class="tbtn">Settings</button>
+        <button id="btnControls" class="tbtn">Controls</button>
+      </nav>
+    </div>
+    <p class="credit">Headphones recommended &middot; All sound is synthesised live</p>
+  </div>
+
+  <!-- Menus: a field journal -->
+  <div id="menu" hidden>
+    <div class="journal">
+      <aside>
+        <button data-tab="pause" class="ingame">Journal</button>
+        <button data-tab="quests" class="ingame">Quests</button>
+        <button data-tab="inventory" class="ingame">Satchel</button>
+        <button data-tab="collection" class="ingame">Collection</button>
+        <button data-tab="map" class="ingame">Map</button>
+        <button data-tab="history" class="ingame">Log</button>
+        <button data-tab="saves">Save &amp; Load</button>
+        <button data-tab="settings">Settings</button>
+        <button data-tab="controls">Controls</button>
+      </aside>
+      <section class="page">
+        <header><h2 id="menuTitle">Paused</h2><button id="menuClose" class="x" aria-label="Close">Close <kbd>Esc</kbd></button></header>
+        <div class="panel" data-panel="pause">
+          <p class="eyebrow" id="pauseChapter"></p>
+          <p class="big" id="pauseObj"></p>
+          <p class="meta" id="pauseStats"></p>
+          <div class="row"><button id="pauseResume" class="btn">Resume</button><button id="pauseTitle" class="btn ghost">Quit to title</button></div>
+        </div>
+        <div class="panel inv" data-panel="inventory"><div id="invGrid"></div><div id="invDetail"></div></div>
+        <div class="panel" data-panel="collection"><div id="colGrid"></div></div>
+        <div class="panel mapP" data-panel="map">
+          <div id="mapTabs"><button data-v="world">Neighbourhood &amp; Forest</button><button data-v="under">Underground</button></div>
+          <div class="mapwrap"><canvas id="mapCv" width="1000" height="640"></canvas><div id="mapTravel"></div></div>
+          <p class="legend"><span class="lg you"></span>You <span class="lg obj"></span>Objective <span class="lg unk"></span>Not yet explored</p>
+        </div>
+        <div class="panel" data-panel="saves"><div id="saveList"></div><p class="meta">The game also autosaves as you play. Saves live in this browser only.</p><button id="resetAll" class="btn ghost small">Reset all saves</button></div>
+        <div class="panel settings" data-panel="settings">
+          <fieldset><legend>Sound</legend>
+            <label>Music <input id="setMusic" type="range" min="0" max="1" step="0.05"></label>
+            <label>Sound effects <input id="setSfx" type="range" min="0" max="1" step="0.05"></label>
+            <label>Ambience <input id="setAmb" type="range" min="0" max="1" step="0.05"></label>
+            <label class="ck"><input id="setMuteMusic" type="checkbox"> Mute music</label>
+            <label class="ck"><input id="setMuteSfx" type="checkbox"> Mute sound effects &amp; ambience</label>
+          </fieldset>
+          <fieldset><legend>World</legend>
+            <label>Graphics <select id="setQuality"><option value="high">High</option><option value="low">Low (faster)</option></select></label>
+            <label>Weather <select id="setWeather"><option value="story">Follow the story</option><option value="clear">Always clear</option><option value="cloudy">Cloudy</option><option value="rain">Rain</option><option value="fog">Light fog</option></select></label>
+            <label class="ck"><input id="setTime" type="checkbox"> Time of day passes</label>
+          </fieldset>
+          <fieldset><legend>Camera &amp; text</legend>
+            <label>Look sensitivity <input id="setSens" type="range" min="0.3" max="2.5" step="0.1"></label>
+            <label>Text speed <input id="setText" type="range" min="0.5" max="3" step="0.25"></label>
+            <label class="ck"><input id="setInvert" type="checkbox"> Invert vertical look</label>
+            <label class="ck"><input id="setAutoCam" type="checkbox"> Camera follows behind Milo</label>
+            <label class="ck"><input id="setLock" type="checkbox"> Lock the mouse pointer on click</label>
+            <label class="ck"><input id="setShake" type="checkbox"> Camera shake</label>
+          </fieldset>
+        </div>
+        <div class="panel controls" data-panel="controls">
+          <table>
+            <tr><th></th><th>Keyboard &amp; mouse</th><th>Controller</th></tr>
+            <tr><td>Move</td><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows</td><td>Left stick</td></tr>
+            <tr><td>Run</td><td><kbd>Shift</kbd></td><td>RT / RB</td></tr>
+            <tr><td>Jump</td><td><kbd>Space</kbd></td><td>A</td></tr>
+            <tr><td>Interact, talk, dig</td><td><kbd>E</kbd></td><td>X</td></tr>
+            <tr><td>Scent vision</td><td><kbd>Q</kbd></td><td>Y</td></tr>
+            <tr><td>Look around</td><td>Drag the mouse, wheel to zoom</td><td>Right stick</td></tr>
+            <tr><td>Satchel</td><td><kbd>I</kbd></td><td>Back / View</td></tr>
+            <tr><td>Map</td><td><kbd>M</kbd></td><td>LB</td></tr>
+            <tr><td>Pause</td><td><kbd>Esc</kbd></td><td>Start</td></tr>
+            <tr><td>Hide</td><td>Stand still under furniture or in a bush</td><td>Stand still</td></tr>
+            <tr><td>Weasel war dance</td><td><kbd>F</kbd></td><td>LB + RB</td></tr>
+            <tr><td>Conversation log</td><td><kbd>H</kbd></td><td></td></tr>
+          </table>
+          <p class="meta">On a phone or tablet: drag on the left to move, drag on the right to look, and use the buttons for everything else. Milo climbs low furniture on his own: just walk into it.</p>
+        </div>
+        <div class="panel" data-panel="history"><div id="histList"></div></div>
+        <div class="panel quests" data-panel="quests"><div id="questBody"></div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Clue board puzzle -->
+  <div id="clues" hidden>
+    <div class="board">
+      <header><h2>Arlo's Corkboard</h2><button class="cclose x">Later</button></header>
+      <p class="cq"></p>
+      <div class="cev"></div>
+      <div class="cans"></div>
+      <p class="cwhy" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <!-- Ending -->
+  <div id="ending" hidden>
+    <div class="card">
+      <p class="over">The End</p>
+      <h2>Ferret: The Hidden Path</h2>
+      <p class="story">Grandpa Arlo cried on the phone, the happy kind. Moss moved into a snug nook under the vegetable bed, and every evening the music box plays Ellie's tune by the open window. The whole street stops to listen. Milo pretends he doesn't know why everyone keeps giving him treats.</p>
+      <ul class="estats"></ul>
+      <div class="row"><button id="endRoam" class="btn">Keep exploring</button><button id="endTitle" class="btn ghost">Title screen</button></div>
+    </div>
+  </div>
+
+  <div id="confirm" hidden><div class="box"><p></p><div class="row"><button class="btn yes">Yes</button><button class="btn ghost no">Cancel</button></div></div></div>
+
+  <!-- Touch controls -->
+  <div id="touch" class="off">
+    <div id="stick"><div id="knob"></div></div>
+    <div class="tbtns">
+      <button data-act="interact" class="big" id="tInteract" aria-label="Interact"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="16" rx="4.6" ry="3.8"/><circle cx="6.2" cy="10.6" r="2"/><circle cx="9.6" cy="6.8" r="2.1"/><circle cx="14.4" cy="6.8" r="2.1"/><circle cx="17.8" cy="10.6" r="2"/></svg><span>Interact</span></button>
+      <button data-act="jump">Jump</button>
+      <button data-act="scent">Sniff</button>
+    </div>
+    <div class="ttop"><button data-act="inv">Bag</button><button data-act="map">Map</button><button data-act="pause">II</button></div>
+  </div>
+
+  <div id="skipHint" hidden>Esc / tap here to skip</div>
+  <div id="fade" class="on"></div>
+  <div id="loading"><div class="paw"></div><p class="msg">Building the neighbourhood&hellip;</p></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/actors.js"></script>
+<script src="js/world.js"></script>
+<script src="js/story.js"></script>
+<script src="js/expansion.js"></script>
+<script src="js/mochi.js"></script>
+<script src="js/humans.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
