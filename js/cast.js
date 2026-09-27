@@ -203,6 +203,8 @@
     }
   }
   G.Beast = Beast;
+  G.BeastKinds = B; // new files (world-town.js, world-summer.js) register extra animals here
+  G.BeastParts = { ball, eyes, fur, col, leg, tailChain, SPH };
 
   /* ================================================================ NPC framework */
   const NPC = (G.NPC = { list: {}, byId: {} });
