@@ -16,7 +16,7 @@
     (() => { try { return JSON.parse(U.storage.get(SET_KEY) || '{}'); } catch (e) { return {}; } })());
   function saveSettings() { U.storage.set(SET_KEY, JSON.stringify(G.settings)); A.applyVolumes(); }
 
-  const CHAPTERS = G.CHAPTERS = Object.assign(G.CHAPTERS || {}, { 7: ['Bonus Chapter', 'The Failed Road Trip'], 1: ['Chapter One', 'The Noise'], 2: ['Chapter Two', 'The Trail'], 3: ['Chapter Three', 'The Forest'], 4: ['Chapter Four', 'The Mystery'], 5: ['Chapter Five', 'Home'], 6: ['Epilogue', 'The Hidden Path'] });
+  const CHAPTERS = G.CHAPTERS = Object.assign(G.CHAPTERS || {}, { 7: ['Bonus Chapter', 'The Failed Road Trip'], 9: ['Bonus Chapter III', 'Grandpa Arlo’s Farm'], 1: ['Chapter One', 'The Noise'], 2: ['Chapter Two', 'The Trail'], 3: ['Chapter Three', 'The Forest'], 4: ['Chapter Four', 'The Mystery'], 5: ['Chapter Five', 'Home'], 6: ['Epilogue', 'The Hidden Path'] });
   const NAMES = G.NAMES = { milo: 'Milo', pip: 'Pip', nora: 'Nora', bram: 'Bram', tilly: 'Tilly', moss: 'Moss', ellie: 'Ellie' };
   const NPC_R = { pip: 0.22, nora: 0.3, bram: 0.5, tilly: 0.26, moss: 0.24 };
 
@@ -192,6 +192,7 @@
     },
     take(id, n = 1) { this.S.inv[id] = Math.max(0, (this.S.inv[id] || 0) - n); if (!this.S.inv[id]) delete this.S.inv[id]; },
     gotC(id) { return !!this.S.collected[id]; },
+    toast(msg, sub) { UI.toast(msg, null, sub || ''); },
     giveCollectible(id) {
       const c = G.COLLECT.find((x) => x.id === id); if (!c || this.S.collected[id]) return;
       this.S.collected[id] = true; if (c.treat) this.S.inv.treat = (this.S.inv.treat || 0) + 1;
@@ -279,7 +280,7 @@
       this.refreshItems();
       if (G.EXT) G.EXT.applyState();
     },
-    moodFor() { return { 1: 'night', 2: 'trail', 3: 'forest', 4: 'mystery', 5: 'night', 6: 'home', 7: 'trail' }[this.S.chapter] || 'home'; },
+    moodFor() { return { 1: 'night', 2: 'trail', 3: 'forest', 4: 'mystery', 5: 'night', 6: 'home', 7: 'trail', 9: 'home' }[this.S.chapter] || 'home'; },
     setWeatherStory() { this.S.weather = this.S.weather || 'clear'; },
 
     /* ---------------------------------------------------------------- NPCs */
@@ -529,7 +530,7 @@
       if (st === 'title') S.time = 18.2;
       // global input
       if (st === 'play' && !UI.dialogueOpen && !this.busy) {
-        if (I.pressed('pause') && !(G.SEQ && (G.SEQ.running || performance.now() - (G.SEQ.lastSkip || 0) < 600))) { UI.menu('pause'); }
+        if (I.pressed('pause') && !(G.SEQ && (G.SEQ.running || performance.now() - (G.SEQ.lastSkip || 0) < 600 || this.t - (G.SEQ.skipT ?? -9) < 0.35))) { UI.menu('pause'); }
         else if (I.pressed('inventory')) UI.menu('inventory');
         else if (I.pressed('map')) UI.menu('map');
         else if (I.pressed('history')) UI.menu('history');
@@ -611,8 +612,8 @@
       G.Mat.rimU.value = 0.35 + (1 - night) * 0.35;
       const sp = this.player.pos; this.sun.position.set(sp.x + sd.x * 50, sp.y + sd.y * 50, sp.z + sd.z * 50); this.sun.target.position.set(sp.x, sp.y, sp.z);
       // stars, moon, clouds
-      this.sky.position.copy(this.camera.position); this.stars.position.copy(this.camera.position);
-      this.stars.material.opacity = night * (1 - wn.cloud) * 0.9;
+      this.sky.visible = !E.ug; if (this._ugBg !== E.ug) { this._ugBg = E.ug; this.renderer.setClearColor(E.ug ? 0x120c08 : 0x9fb4c8); } this.sky.position.copy(this.camera.position); this.stars.position.copy(this.camera.position);
+      this.stars.material.opacity = night * (1 - wn.cloud) * 0.9 * (E.ug ? 0 : 1);
       const U2 = this.skyMat.uniforms; U2.moonDir.value.copy(V3(-Math.cos(ang), Math.abs(Math.sin(ang)) * 0.7 + 0.3, 0.4).normalize()); U2.nightK.value = night * (1 - wn.cloud * 0.8);
       U2.cloudCov.value = 0.25 + wn.cloud * 0.75; U2.cloudCol.value.copy(hor).lerp(new THREE.Color(0xffffff), 0.55 * (1 - night)).multiplyScalar((1 - wn.rain * 0.45) * (1 - night * 0.55));
       // window panes show the sky; windows glow at night
@@ -710,7 +711,7 @@
         const ci = this.cine; ci.t += dt;
         if (!ci.soft && ci.t > 0.8 && (I.pressed('jump') || I.pressed('pause')) && this.state === 'play' && !UI.dialogueOpen) { this.cinematicEnd(); }
         else {
-          const k = 1 - Math.exp(-2.2 * dt); cam.position.lerp(ci.pos, c.snap ? 1 : k); c.look.lerp(ci.look, c.snap ? 1 : k); cam.lookAt(c.look); c.snap = false;
+          const k = ci.lock ? 1 : 1 - Math.exp(-2.2 * dt); cam.position.lerp(ci.pos, c.snap ? 1 : k); c.look.lerp(ci.look, c.snap ? 1 : k); cam.lookAt(c.look); c.snap = false;
           if (ci.t > ci.dur) this.cinematicEnd();
           return;
         }
@@ -879,8 +880,10 @@
     happy() { if (!this.action || this.action === 'interact') { setTimeout(() => { if (!this.action) this.dance(1.6); }, 650); } }
     update(dt, control) {
       const g = game, c = g.cam;
-      if (this.titleIdle) { this.f.update(dt, { speed: 0, action: null }); return; }
+      if (this.titleIdle && g.state !== 'title') this.titleIdle = false;
+      if (this.titleIdle && g.state === 'title') { this.f.update(dt, { speed: 0, action: null }); return; }
       if (this.action) { this.actT -= dt; if (this.actT <= 0) this.action = null; }
+      if (this.pin) { const pp = this.pin(); if (pp) { this.pos.copy(pp.p); this.vis.copy(pp.p); this.vel.set(0, 0, 0); this.vy = 0; this.grounded = true; this.speedH = 0; this.yaw = pp.yaw; this.f.root.position.copy(pp.p); this.f.root.rotation.set(0, pp.yaw, 0); this.f.update(dt, { speed: 0, action: this.action, turn: 0 }); return; } }
       // input -> desired velocity
       let mx = 0, mz = 0, run = false, mag = 0;
       if (control && !(this.action && this.lockMove)) {
@@ -1063,7 +1066,7 @@
   }
 
   /* ================================================================ UI */
-  const ROMAN = (G.ROMAN = Object.assign(G.ROMAN || [], ['', 'I', 'II', 'III', 'IV', 'V', '❧', '★']));
+  const ROMAN = (G.ROMAN = Object.assign(G.ROMAN || [], ['', 'I', 'II', 'III', 'IV', 'V', '❧', '★', , '★★']));
   const UI = (G.UI = {
     dialogueOpen: false, panel: null, cardOpen: false, history: [],
     init() {
@@ -1101,7 +1104,7 @@
       const S = game.S, step = G.STEPS[S.step]; const el = $('#objective');
       if (!step || game.state === 'title') { el.hidden = true; return; }
       el.hidden = false; el.querySelector('.ch').textContent = ROMAN[S.chapter] || '';
-      let txt = step.text;
+      let txt = typeof step.text === 'function' ? step.text() : step.text;
       if (S.step === 'c2_shiny') txt += ` (${['bottlecap', 'foil', 'marble'].filter((k) => game.hasItem(k)).length}/3)`;
       el.querySelector('.txt').textContent = txt;
       const sub = el.querySelector('.sub'); sub.innerHTML = '';

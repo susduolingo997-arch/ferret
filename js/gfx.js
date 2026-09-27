@@ -316,9 +316,9 @@
     penv.focus = Math.max(0.4, cam.position.distanceTo(g.cam.look || g.player.pos)); penv.aperture = cine || talk ? 0.32 : 0.07;
     penv.exposure = r.toneMappingExposure; penv.dt = dt; penv.cut = this._cut || g.cam.snap; penv.indoor = !!E.indoor; penv.ug = !!E.ug; penv.cine = cine;
     penv.volDensity = E.ug ? 0 : 0.012 + (E.fog || 0) * 0.03 + (E.area && E.area.zone === 'forest' ? 0.012 : 0) + (E.indoor ? 0.03 : 0) + (E.rain || 0) * 0.01;
-    penv.volDist = Math.min(90, this.viewDist * 0.5); penv.baseY = 0; penv.rayStr = 0.45 + (E.area && E.area.zone === 'forest' ? 0.25 : 0);
+    { const pp = g.player.pos; if (pp.x > 150 && pp.x < 230 && pp.z > 55 && pp.z < 150) penv.volDensity *= 0.3; } penv.volDist = Math.min(90, this.viewDist * 0.5); penv.baseY = 0; penv.rayStr = 0.45 + (E.area && E.area.zone === 'forest' ? 0.25 : 0);
     penv.grade = grade(E); penv.adaptKey = E.ug ? 0.12 : 0.2 - (E.night || 0) * 0.08; penv.bloomK = 1 + (E.night || 0) * 0.5 + (E.ug ? 0.6 : 0);
-    penv.aoStr = E.ug ? 0.8 : 1; penv.fade = 1;
+    const pp = g.player.pos; penv.aoStr = E.ug ? 0.8 : (pp.x > 150 && pp.x < 230 && pp.z > 55 && pp.z < 150) || (pp.x > 396 && pp.x < 460 && pp.z > 296 && pp.z < 360) ? 0 : 1; // the farm's big flat planes band under SSAO penv.fade = 1;
     this.pipe.render(scene, cam, penv, null);
     this.after(scene, cam);
     this._cut = false;

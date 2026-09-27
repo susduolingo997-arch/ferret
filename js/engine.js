@@ -596,7 +596,7 @@ G.Mat = {
   std(key, o) {
     if (this.cache[key]) return this.cache[key];
     const m = new THREE.MeshStandardMaterial({ color: o.color ?? 0xffffff, roughness: o.rough ?? 0.85, metalness: o.metal ?? 0, flatShading: !!o.flat });
-    if (o.map) { m.map = G.Tex.get(o.map); }
+    if (o.map) { m.map = o.map.isTexture ? o.map : G.Tex.get(o.map); }
     if (o.emissive) { m.emissive = new THREE.Color(o.emissive); m.emissiveIntensity = o.ei ?? 1; }
     if (o.transparent) { m.transparent = true; m.opacity = o.opacity ?? 1; m.depthWrite = o.depthWrite ?? false; }
     if (o.side) m.side = o.side;

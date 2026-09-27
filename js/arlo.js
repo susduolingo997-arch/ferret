@@ -282,14 +282,14 @@
       R.build(R.byId.bay);
       g.S.time = 16.2; g.S.weather = 'clear';
       hide(true); c.mochiOut = false; if (G.Mochi && G.Mochi.f) G.Mochi.f.root.visible = false;
-      car.visible = true; car.position.set(238, 0, -6); car.rotation.y = Math.PI / 2; c.driver.root.visible = true; c.passenger.root.visible = true; c.peek.visible = true; c.peekT = 0;
+      car.visible = true; car.position.set(238, 0, -6); car.rotation.y = Math.PI / 2; c.driver.root.visible = true; c.passenger.root.visible = true; hide(false); c.ride = { car, off: V3(0.4, 0.61, -0.84), yaw: 0 };
       [E, Mm].forEach((h) => { h.root.visible = false; h.home = false; });
       Ar.root.visible = true; Ar.pos.set(271.6, 0.16, -6.4); Ar.yaw = -Math.PI / 2; Ar.pose = 'idle';
       UI().fade(false);
       UI().chapterCard(8);
       cut([262, 9, 14], [300, 0, -8], 0.1); await shot([266, 6, 8], [310, 2, -20], 4.2);
       track(car, [-5, 2.2, 5], [2, 0.8, 0]);
-      await go(car, [[250, -6], [253, -4.4]], 7); car.userData.speed = 0; track(null); c.peek.visible = false;
+      await go(car, [[250, -6], [253, -4.4]], 7); car.userData.speed = 0; track(null); c.ride = null;
       cut([256.5, 1.4, -1], [253, 0.8, -4.4], 0.1);
       await talk([['ellie', 'THE SEA! Milo, wake up, it’s the SEA!', 'happy']]);
       openDoor(car, 0, true); openDoor(car, 1, true); c.driver.root.visible = false; c.passenger.root.visible = false;

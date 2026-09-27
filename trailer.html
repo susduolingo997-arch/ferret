@@ -3,11 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ferret: The Hidden Path</title>
+<title>Hidden Path Trailer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Atkinson+Hyperlegible:wght@400;700&family=Patrick+Hand&display=swap">
 <link rel="stylesheet" href="style.css">
+<style>
+  #hud, #touch, #letterbox, #skipHint, #title, #menu, #dialogue, #chapterCard, #toasts, #ending, #scentVeil { display: none !important; }
+  .tl { position: absolute; left: 0; right: 0; height: 9%; background: #000; z-index: 40; pointer-events: none; }
+  .tl.top { top: 0; } .tl.bot { bottom: 0; }
+  #tFade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity .5s; z-index: 41; pointer-events: none; }
+  #tFade.on { opacity: 1; }
+  #tCap { position: absolute; left: 0; right: 0; bottom: 13%; text-align: center; z-index: 42; pointer-events: none; opacity: 0; padding-inline: 16px; }
+  #tCap.on { animation: capIn 3.4s ease forwards; }
+  @keyframes capIn { 0% { opacity: 0; transform: translateY(12px); } 15%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+  #tCap .t { font-family: 'Caprasimo', Georgia, serif; font-size: clamp(28px, 5vw, 64px); color: #f3e6cf; text-shadow: 0 4px 24px rgba(0,0,0,.8); text-wrap: balance; }
+  #tCap .s { margin-top: 6px; font: 700 clamp(12px, 1.6vw, 18px) 'Atkinson Hyperlegible', sans-serif; letter-spacing: .3em; text-transform: uppercase; color: #f0b44a; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+  #tBig, #tEnd { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; z-index: 42; pointer-events: none; opacity: 0; transition: opacity 1.4s; padding-inline: 16px; }
+  #tBig.on, #tEnd.on { opacity: 1; }
+  #tBig h1, #tEnd h1 { margin: 0; font-family: 'Caprasimo', Georgia, serif; font-weight: 400; font-size: clamp(56px, 12vw, 160px); color: #f3e6cf; line-height: .9; text-shadow: 0 8px 40px rgba(0,0,0,.7), 0 0 60px rgba(240,180,74,.35); }
+  #tBig p, #tEnd p { margin: 8px 0 0; font: italic clamp(20px, 3.4vw, 44px) Georgia, serif; color: #f0b44a; text-shadow: 0 2px 16px rgba(0,0,0,.8); }
+  #tEnd small { display: block; margin-top: 22px; font: 700 clamp(11px, 1.5vw, 17px) 'Atkinson Hyperlegible', sans-serif; letter-spacing: .25em; color: #e9dcc4; text-shadow: 0 2px 10px #000; }
+  #tEnd em { display: block; margin-top: 26px; font: 400 clamp(22px, 3.6vw, 44px) 'Caprasimo', Georgia, serif; font-style: normal; color: #f0b44a; opacity: 0; transform: scale(.9); transition: opacity 1.2s, transform 1.2s; text-shadow: 0 0 30px rgba(240,180,74,.5), 0 2px 12px #000; }
+  #tEnd em.on { opacity: 1; transform: none; animation: soon 2.4s ease-in-out 1.2s infinite; }
+  @keyframes soon { 50% { text-shadow: 0 0 50px rgba(240,180,74,.9), 0 2px 12px #000; } }
+  #tPlay { position: absolute; inset: 0; z-index: 50; display: grid; place-items: center; background: radial-gradient(circle at 50% 50%, rgba(0,0,0,.15), rgba(0,0,0,.6)); border: 0; cursor: pointer; color: #f3e6cf; font: inherit; }
+  #tPlay span { display: grid; gap: 14px; justify-items: center; }
+  #tPlay b { font-family: 'Caprasimo', Georgia, serif; font-weight: 400; font-size: clamp(36px, 7vw, 88px); text-shadow: 0 6px 30px rgba(0,0,0,.8); }
+  #tPlay i { font-style: normal; border: 2px solid #f0b44a; color: #f0b44a; background: rgba(14,11,9,.6); padding: 12px 26px; border-radius: 999px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 14px; }
+  #tPlay:focus-visible i, #tPlay:hover i { background: #f0b44a; color: #0e0b09; }
+  #tLoad { position: absolute; inset: 0; z-index: 49; display: grid; place-items: center; color: #a8977d; font: 700 14px 'Atkinson Hyperlegible', sans-serif; letter-spacing: .2em; text-transform: uppercase; background: #0e0b09; }
+</style>
+
 
 </head>
 <body>
@@ -180,6 +207,13 @@
   </div>
 
   <div id="skipHint" hidden>Esc / tap here to skip</div>
+  <div class="tl top"></div><div class="tl bot"></div>
+  <div id="tFade"></div>
+  <div id="tCap"><div class="t"></div><div class="s"></div></div>
+  <div id="tBig"><h1>Ferret</h1><p>The Hidden Path</p></div>
+  <div id="tEnd"><h1>Ferret</h1><p>The Hidden Path</p><small>14 chapters · 3 bonus adventures · 1 very nosy ferret</small><em id="tSoon">New content coming soon</em></div>
+  <div id="tLoad">Loading the neighbourhood…</div>
+  <button id="tPlay" hidden aria-label="Play the trailer with sound"><span><b>Ferret: The Hidden Path</b><i>▶ Play trailer</i></span></button>
   <div id="fade" class="on"></div>
   <div id="loading"><div class="paw"></div><p class="msg">Building the neighbourhood&hellip;</p></div>
 </div>
@@ -207,5 +241,6 @@
 <script src="js/backrooms.js"></script>
 <script src="js/weather.js"></script>
 <script src="js/game.js"></script>
+<script src="js/trailer.js"></script>
 </body>
 </html>

@@ -153,7 +153,7 @@
     let h = '<h3>The story continues</h3><div class="qlist">';
     const cur = s.chapter;
     for (let k = 10; k <= 18; k++) {
-      const c = SQ.CH[k], started = (SQ.s().started || {})[k] || cur > k, act = cur === k, done = cur > k && cur !== 8 || (cur === 8 && (s.prevChapter || 0) > k);
+      const c = SQ.CH[k], started = (SQ.s().started || {})[k] || cur > k, act = cur === k, done = cur > k && cur !== 8 && cur !== 9 && cur !== 20 || ((cur === 8 || cur === 9 || cur === 20) && (s.prevChapter || 0) > k);
       if (!started && !act) { h += `<div class="q"><i></i><div><b>Chapter ${c.n}: ???</b>${k === 10 && cur === 6 ? '<small>Moss found something in the creek. Talk to him in the backyard.</small>' : ''}</div></div>`; continue; }
       h += `<div class="q ${act ? 'active' : 'done'}"><i></i><div><b>Chapter ${c.n}: ${esc(c.title)}</b><small>${act && G.STEPS[s.step] ? esc(G.STEPS[s.step].text) : 'Complete'}</small></div></div>`;
     }
