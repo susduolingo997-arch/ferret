@@ -556,7 +556,7 @@ G.Tex = {
         for (let i = 0; i < 26; i++) { g.save(); g.translate(20 + r() * 88, 20 + r() * 88); g.rotate(r() * 6.3); g.fillStyle = `hsl(${85 + r() * 40},${35 + r() * 25}%,${22 + r() * 22}%)`; g.beginPath(); g.ellipse(0, 0, 16, 7, 0, 0, 7); g.fill(); g.restore(); }
       });
     }
-    return null;
+    return this.cache[name] || null;
   },
   /* small painted pictures used for photographs, drawings and notes */
   picture(kind) {

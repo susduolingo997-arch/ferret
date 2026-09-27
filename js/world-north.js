@@ -27,7 +27,7 @@
     y += 2.4 * ss(-160, -172, z) + 1.2 * ss(-140, -150, x); // rises to the ridge in the north and west
     return y;
   }
-  P.far = { entry: [-80, 0, -72], moss: [-77.4, 0, -63.5], thicket: [-80, 0, -70.2], ravineS: [-62, 0, -111.8], ravineN: [-62, 0, -124.6], holeS: [-57, 0, -109.3], holeN: [-54.5, 0, -126.2], pool: [-80, 0, -150], otto: [-72.6, 0, -149.4], gate: [-40.6, 0, -140], drain: [-40.7, 0, -133], bracken: [-120, 0, -128], grove: [-133, 0, -160] };
+  P.far = { entry: [-80, 0, -72], moss: [-77.4, 0, -63.5], thicket: [-77.2, 0, -69.2], ravineS: [-62, 0, -111.8], ravineN: [-62, 0, -124.6], holeS: [-57, 0, -109.3], holeN: [-54.5, 0, -126.2], pool: [-80, 0, -150], otto: [-72.6, 0, -149.4], gate: [-40.6, 0, -140], drain: [-40.7, 0, -133], bracken: [-120, 0, -128], grove: [-133, 0, -160] };
   R.def({
     id: 'farwood', navGround: true, name: 'Far Wood', bounds: [-150, -40, -172, -70], preload: 30,
     areas: [
@@ -482,16 +482,18 @@
   R.def({
     id: 'peaks', name: 'Peaks', bounds: [-1e5, 1e5, -1e5, 1e5], manual: true, always: true,
     build(ctx) {
-      const rng = U.rng(55), snow = M.std('snowpeak', { color: 0xdfe6ee, rough: 0.8 }), rock = M.std('farrock', { color: 0x6a6e76, rough: 1, flat: true });
+      // unlit, pre-shaded and hazy: at this distance the peaks are mostly air
+      const rng = U.rng(55), snow = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }), rock = snow;
+      const shade = (geo, c0, c1) => { const g2 = geo.toNonIndexed(); g2.computeVertexNormals(); const n = g2.attributes.normal, cols = new Float32Array(n.count * 3), a = new THREE.Color(c0), b = new THREE.Color(c1), cc = new THREE.Color(); for (let i = 0; i < n.count; i++) { const k = U.clamp(0.5 + 0.5 * (n.getX(i) * 0.5 + n.getY(i) * 0.6 - n.getZ(i) * 0.3), 0, 1); cc.copy(a).lerp(b, k).convertSRGBToLinear(); cols[i * 3] = cc.r; cols[i * 3 + 1] = cc.g; cols[i * 3 + 2] = cc.b; } g2.setAttribute('color', new THREE.BufferAttribute(cols, 3)); return g2; };
       const g = (W.obj.peaks = new THREE.Group()); ctx.root.add(g);
       for (let i = 0; i < 18; i++) {
         const a = -2.35 + i * 0.1 + (rng() - 0.5) * 0.05, d = 1 + rng() * 0.15, h = 0.12 + rng() * 0.11, r = 0.14 + rng() * 0.08;
-        const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7, 3), rock); m.position.set(Math.cos(a) * d, h / 2 - 0.03, Math.sin(a) * d); m.rotation.y = rng() * 3; g.add(m);
-        const c = new THREE.Mesh(new THREE.ConeGeometry(r * 0.3, h * 0.3, 7, 1), snow); c.position.set(m.position.x, h * 0.85 - 0.03, m.position.z); c.rotation.y = m.rotation.y; g.add(c);
+        const m = new THREE.Mesh(shade(new THREE.ConeGeometry(r, h, 7, 1), 0x7d8896, 0xa9b4c2), rock); m.position.set(Math.cos(a) * d, h / 2 - 0.03, Math.sin(a) * d); m.rotation.y = rng() * 3; g.add(m);
+        const c = new THREE.Mesh(shade(new THREE.ConeGeometry(r * 0.33, h * 0.3, 7, 1), 0xc9d3de, 0xf4f7fa), snow); c.position.set(m.position.x, h * 0.85 - 0.03, m.position.z); c.rotation.y = m.rotation.y; g.add(c);
       }
       ctx.root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.userData.dynamic = true; o.frustumCulled = false; } });
     },
-    update(dt, g) { const p = W.obj.peaks; if (!p) return; const R2 = Math.min(400, ((G.GFX && G.GFX.viewDist) || 260) * 0.8); const cp = g.camera.position; p.position.set(cp.x, 0, cp.z); p.scale.setScalar(R2); p.visible = cp.y > UG + 12 && !(G.env && G.env.indoor); },
+    update(dt, g) { const p = W.obj.peaks; if (!p) return; const R2 = Math.min(400, ((G.GFX && G.GFX.viewDist) || 260) * 0.8); const cp = g.camera.position; p.position.set(cp.x, 0, cp.z); p.scale.setScalar(R2); p.visible = cp.y > UG + 12 && cp.x < 225 && !(G.env && G.env.indoor); },
   });
   const oInit = G.EXT.init;
   G.EXT.init = function (g) { oInit(g); R.build(R.byId.peaks); };

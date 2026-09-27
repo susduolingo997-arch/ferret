@@ -586,8 +586,8 @@
 
   function updateHUD(dt, env) {
     // weather chip
-    const wc = document.getElementById('weatherChip'); const w = env.rain > 0.4 ? 'rain' : env.fog > 0.5 ? 'fog' : null;
-    if (w !== EXT.wShown) { EXT.wShown = w; wc.hidden = !w || env.ug; wc.innerHTML = w === 'rain' ? '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0116 0z"/><path d="M12 12v7a2 2 0 01-4 0"/></svg><b>Rain</b>&nbsp;scents fade fast' : w === 'fog' ? '<svg viewBox="0 0 24 24"><path d="M3 8h18M5 12h14M3 16h18"/></svg><b>Fog</b>&nbsp;scents linger' : ''; }
+    const wc = document.getElementById('weatherChip'); const w = G.Weather && G.game.weatherNow.storm > 0.5 && env.rain > 0.4 ? 'storm' : env.rain > 0.4 ? 'rain' : env.fog > 0.5 ? 'fog' : null;
+    if (w !== EXT.wShown) { EXT.wShown = w; wc.hidden = !w || env.ug; wc.innerHTML = w === 'storm' ? '<svg viewBox="0 0 24 24"><path d="M4 11a8 8 0 0116 0z"/><path d="M13 12l-3 5h4l-3 5"/></svg><b>Storm</b>&nbsp;stay under cover' : w === 'rain' ? '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0116 0z"/><path d="M12 12v7a2 2 0 01-4 0"/></svg><b>Rain</b>&nbsp;scents fade fast' : w === 'fog' ? '<svg viewBox="0 0 24 24"><path d="M3 8h18M5 12h14M3 16h18"/></svg><b>Fog</b>&nbsp;scents linger' : ''; }
     if (wc) wc.hidden = !w || !!env.ug || !!(env.area && env.area.indoor);
     // scent compass arrow
     const g = G_(), arr = document.getElementById('scentArrow');

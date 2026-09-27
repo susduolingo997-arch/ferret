@@ -61,7 +61,7 @@
     s10_creek: T('Meet Moss where Whisper Creek comes out of the hills', P.far.moss),
     s10_thicket: T('Push through the bramble thicket', P.far.thicket),
     s10_upstream: T('Follow the creek upstream into the Far Wood', P.far.ravineS),
-    s10_ravine: T('Find a way across the old ravine (try your nose)', P.far.holeS),
+    s10_ravine: T('Find a way across the old ravine (try your nose)', () => (game().player.pos.y < UG + 12 ? [-54.6, UG, -125.7] : P.far.holeS)),
     s10_bridge: T('Kick the loose planks into place so Moss can cross', P.far.ravineN),
     s10_acorns: T('Follow the trail of carved acorns (sniff with Q)', () => SQ.trailPos(SQ.trails.acorns)),
     s10_otto: T('Say hello to whoever is splashing in the pool', P.far.otto),
@@ -93,7 +93,7 @@
   const mossSpec = { color: 0x6a4a33, face: 0xd9c0a0, tip: 0xe8dcc4, scale: 1.3, shy: true };
   const companion = () => ch() >= 10 && ch() <= 12 && has('mossWith');
   NPC.add({ id: 'mossC', name: 'Moss', kind: 'hedgehog', look: mossSpec, portrait: false, sound: 'snuffle',
-    when: () => ch() >= 10 && ch() <= 12 && !inStep('s10_intro'), pos: () => (has('mossWith') ? mossSpot() : st() === 's10_creek' || st() === 's10_thicket' ? P.far.moss : inStep('s10_ravine', 's10_bridge') ? P.far.ravineS : mossSpot()),
+    when: () => ch() >= 10 && ch() <= 12 && !inStep('s10_intro'), pos: () => (inStep('s10_ravine', 's10_bridge') ? P.far.ravineS : has('mossWith') ? mossSpot() : st() === 's10_creek' || st() === 's10_thicket' ? P.far.moss : mossSpot()),
     lines: () => mossLines(), tick: (dt, d) => { d.following = companion() && !inStep('s10_ravine', 's10_bridge') && !d.path; } });
   const mossSpot = () => { const p = game().player.pos; return [p.x - 0.8, p.y, p.z - 0.8]; };
   function mossLines() {
@@ -197,18 +197,18 @@
     say([['moss', 'Milo! Look. This came floating down Whisper Creek this morning.', 'surprised'], { do: () => { game().give('carvedacorn'); } }, ['milo', 'A tiny wooden acorn... with a spiral carved on the cap. Somebody MADE this.', 'surprised'], ['moss', 'It came from upstream. But the creek comes out of a bramble thicket. Nobody goes past the thicket.', 'think'], ['moss', 'I think there’s a path behind it. A hidden one. Will you come? I’ll meet you at the thicket, where the creek comes out of the hill!', 'happy'], ['milo', 'An adventure! Of course I’ll come.', 'happy']], () => step('s10_creek'));
   };
   SQ.trigger(() => st() === 's10_creek' && SQ.near(P.far.moss, 3.2), () => say([['moss', 'You came! Look: the brambles. And the creek goes right under them. Smell that? Old path. Wet stones. Something sweet, like honey.', 'happy'], ['moss', 'You’re better at pushing than me. I just get stuck. Spiky.', 'shy']], () => step('s10_thicket')), false);
-  G.INTERACT.push({ id: 'far_thicket', pos: [-80, 0, -69.2], r: 1.6, label: () => (st() === 's10_thicket' ? 'Push through the bramble thicket' : 'Sniff the bramble thicket'), anim: 'push', when: () => !has('farOpen'), act: () => {
+  G.INTERACT.push({ id: 'far_thicket', pos: P.far.thicket, r: 1.6, label: () => (st() === 's10_thicket' ? 'Push through the bramble thicket' : 'Sniff the bramble thicket'), anim: 'push', when: () => !has('farOpen'), act: () => {
     if (st() !== 's10_thicket') { say(think(ch() < 10 ? 'Brambles, thick and prickly. The creek disappears under them. Something smells sweet on the other side...' : 'Moss said to meet him here. Where is he?')); return; }
-    const g = game(); g.player.act('push', 2, { lockMove: true }); A.play('rustle'); setTimeout(() => A.play('rustle'), 600);
+    const g = game(); g.busy = true; g.player.act('push', 2, { lockMove: true }); A.play('rustle'); setTimeout(() => A.play('rustle'), 600);
     const th = W.obj.farThicket; g.tween(1.8, (k) => { if (th) th.children.forEach((b, i) => { b.scale.setScalar(1 - U.smooth(Math.min(1, k * 1.3 - i * 0.02)) * 0.95); b.position.z = -70.2 - k * (i % 2 ? 0.6 : -0.6); }); }, () => {
-      g.flag('farOpen'); g.flag('mossWith'); applyNorth(); A.play('secret'); g.particles.burst(V3(-80, 0.5, -70), 30, 0x6a8a3a, 'dust');
+      g.busy = false; g.flag('farOpen'); g.flag('mossWith'); applyNorth(); A.play('secret'); g.particles.burst(V3(-80, 0.5, -70), 30, 0x6a8a3a, 'dust');
       g.cinematic({ pos: V3(-77, 1.8, -64), look: V3(-80, 0.3, -80), dur: 3 });
       say([['milo', 'A path! It follows the creek up into a wood I’ve never seen. A whole new wood!', 'surprised'], ['moss', 'The Far Wood. Nora’s grandmother used to sing about it. Let’s go!', 'happy']], () => step('s10_upstream'));
     });
   } });
   SQ.trigger(() => st() === 's10_upstream' && game().player.pos.z < -103, () => { game().cinematic({ pos: V3(-58.5, 2.2, -106.5), look: V3(-62, 0, -118), dur: 3.2 }); say([['milo', 'A ravine! Deep, with roots hanging down the sides. And the bridge...', 'surprised'], ['moss', 'Broken. Half the planks are down there. I’m NOT jumping that.', 'sad'], ['milo', 'Hmm. There’s cold air coming from under those mossy rocks. Tunnel air. Let me sniff around.', 'think']], () => { step('s10_ravine'); game().flag('mossWait'); }); });
   G.INTERACT.push({ id: 'far_holeS', pos: [-57, 'g', -109.3], r: 0.9, label: 'Squeeze under the mossy rocks', anim: 'sniff', when: () => ch() >= 10 && has('farOpen'), act: () => game().travel([-57, UG, -109.8], Math.PI, () => { if (!has('visit_glow')) { game().flag('visit_glow'); say(think('A little tunnel under the ravine. And... lights? Glowworms! Hundreds of them.', 'surprised')); } }) });
-  G.INTERACT.push({ id: 'far_holeSback', pos: [-57, UG, -109.5], r: 0.7, label: 'Climb back out (south side)', act: () => game().travel([-57, 'g' === 'g' ? W.groundY(-57, -108.4) : 0, -108.4], 0) });
+  G.INTERACT.push({ id: 'far_holeSback', pos: [-57, UG, -109.5], r: 0.7, label: 'Climb back out (south side)', act: () => game().travel([-57, W.groundY(-57, -108.4), -108.4], 0) });
   G.INTERACT.push({ id: 'far_holeN', pos: [-54.6, UG, -125.7], r: 0.7, label: 'Climb out (north side)', act: () => game().travel([-54.5, W.groundY(-54.5, -127), -127.2], Math.PI, () => { if (st() === 's10_ravine') { step('s10_bridge'); say([['milo', 'I’m across! Moss is waving from the other side. The loose planks are right here, I can kick them back into place.', 'happy']]); } }) });
   G.INTERACT.push({ id: 'far_holeNback', pos: [-54.5, 'g', -126.2], r: 0.9, label: 'Squeeze into the tunnel', anim: 'sniff', when: () => ch() >= 10, act: () => game().travel([-54.6, UG, -125.4], 0) });
   G.INTERACT.push({ id: 'far_carving', pos: [-57, UG, -118.4], r: 1.3, label: 'Study the carvings on the wall', act: () => {
@@ -216,8 +216,8 @@
     say([['milo', 'Carvings. A big spiral... little animals walking toward it... mice, rabbits, hedgehogs... and a long one with a bow. And a J.', 'surprised'], ['milo', 'J for Juniper? She was here. But the spiral is the same as on the acorn. What does it mean?', 'think'], ...(first ? [{ do: () => UI().toast('<b>New clue in your journal</b>', null, 'A spiral carving of little animals, signed with a J, under the Far Wood.') }] : [])]);
   } });
   G.INTERACT.push({ id: 'far_planks', pos: [-62, 'g', -123.6], r: 1.4, label: 'Kick the loose planks into place', anim: 'push', when: () => ch() >= 10 && !has('fwBridge') && game().player.pos.z < -121.6, act: () => {
-    const g = game(); g.player.act('push', 1.6, { lockMove: true }); A.play('scrape'); setTimeout(() => A.play('thud'), 900);
-    setTimeout(() => { g.flag('fwBridge'); applyNorth(); A.play('secret');
+    const g = game(); g.busy = true; g.player.act('push', 1.6, { lockMove: true }); A.play('scrape'); setTimeout(() => A.play('thud'), 900);
+    setTimeout(() => { g.busy = false; g.flag('fwBridge'); applyNorth(); A.play('secret');
       if (st() === 's10_bridge') { const m = NPC.get('mossC'); m.path = [[-62, 0, -112], [-62, 0, -124.5]]; m.pathSpeed = 1.3; m.onArrive = () => { m.path = null; g.flag('mossWait', false); say([['moss', 'I did it! I crossed! Don’t look at my legs, they’re still wobbly.', 'happy'], ['moss', 'Milo, look: another carved acorn, stuck in the bridge. And another one further on! It’s a trail!', 'surprised']], () => step('s10_acorns')); }; }
     }, 1500);
   } });

@@ -238,7 +238,7 @@
       const show = !!(want && pos);
       if (!show) { if (d.beast) d.beast.root.visible = false; d.shown = false; d.it.pos[1] = -999; continue; }
       const b = d.make(), r = b.root;
-      if (!d.shown || !d.home || d.posKey !== String(pos)) { if (!d.following || !d.shown) { const p = ground(pos); r.position.set(p[0], p[1], p[2]); if (d.yaw !== undefined) r.rotation.y = typeof d.yaw === 'function' ? d.yaw() : d.yaw; d.home = p; d.target = null; } d.posKey = String(pos); }
+      if (!d.shown || !d.home || d.posKey !== String(pos)) { if ((!d.following && !(d.path && d.path.length)) || !d.shown) { const p = ground(pos); r.position.set(p[0], p[1], p[2]); if (d.yaw !== undefined) r.rotation.y = typeof d.yaw === 'function' ? d.yaw() : d.yaw; d.home = p; d.target = null; } d.posKey = String(pos); }
       r.visible = true; d.shown = true;
       const dx = pl.pos.x - r.position.x, dz = pl.pos.z - r.position.z, dist = Math.hypot(dx, dz);
       b.state.moving = false; b.state.lookYaw = undefined; b.state.speed = 0;
