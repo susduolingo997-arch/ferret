@@ -302,6 +302,8 @@
     { id: 'mem_bench', pos: [5, 2.8, -104.3], r: 1.3, label: 'Read the note on the workbench', when: () => ch() >= 12, act: () => { memAct('m_bench', [['milo', 'A clock, half-built. And a note in Arlo’s handwriting:', 'think'], ['milo', '"I stopped every clock the day we left. Time can wait here for us. When all four strike Ellie’s hour together, my study will open for whoever needs it."', 'surprised']])(); if (inStep('s12_explore', 's12_note')) setTimeout(() => { if (!UI().dialogueOpen) step('s12_clocks'); else SQ._afterNote = true; }, 400); } },
     { id: 'mem_bird', pos: [4, 5.6, -108.6], r: 1.1, label: 'Wind the clockwork bird', anim: 'interact', when: () => ch() >= 12, act: () => { const b = W.obj.clockBird; A.play('bell'); game().tween(2, (k) => { b.rotation.y = Math.sin(k * 20) * 0.5; b.position.y = 6.16 + Math.abs(Math.sin(k * 12)) * 0.05; }); memAct('m_bird', [['milo', 'Tweet-tweet! A little brass bird. It sings the first bars of Ellie’s tune, then stops. Arlo made it for her, I bet.', 'happy']])(); } },
   );
+  // clocks solved out of order (before reading the note): don't strand the story
+  SQ.tick(() => { if (has('studyOpen') && inStep('s12_explore', 's12_note', 's12_clocks') && !UI().dialogueOpen && !game().busy) step('s12_study'); });
   SQ.tick(() => { if (SQ._afterNote && !UI().dialogueOpen && inStep('s12_explore', 's12_note')) { SQ._afterNote = false; step('s12_clocks'); } });
   const clockH = (id) => { const c = SQ.s().clocks || {}; return c[id] || { hall: 4, parlor: 11, kitchen: 2, clockroom: 9 }[id]; };
   G.INTERACT.push({ id: 'wren_clock', pos: [0, -999, 0], r: 0.9, label: () => 'Turn the clock’s hour hand', when: () => ch() >= 12 && !has('studyOpen'), act: () => {
@@ -315,9 +317,9 @@
     const g = game(); g.flag('studyOpen'); g.busy = true; A.play('bell'); setTimeout(() => A.play('bell'), 400); setTimeout(() => A.play('bell'), 800);
     UI().toast('<b>Bong... bong... bong...</b>', null, 'All four clocks strike seven together.');
     g.cinematic({ pos: V3(-8.6, 1.3, -116.4), look: V3(-13.8, 1, -119), dur: 6 });
-    setTimeout(() => { A.play('push'); const bc = W.obj.wrenBookcase; g.tween(2.2, (k) => (bc.position.z = -119 + 1.4 * U.smooth(k)), () => { W.col.wrenBookcase.on = false; g.busy = false; if (inStep('s12_clocks')) step('s12_study'); say(think('The bookcase slid aside! There’s a little room behind it. Arlo’s secret study.', 'surprised')); }); }, 1800);
+    setTimeout(() => { A.play('push'); const bc = W.obj.wrenBookcase; g.tween(2.2, (k) => (bc.position.z = -119 + 1.4 * U.smooth(k)), () => { W.col.wrenBookcase.on = false; g.busy = false; if (inStep('s12_explore', 's12_note', 's12_clocks')) step('s12_study'); say(think('The bookcase slid aside! There’s a little room behind it. Arlo’s secret study.', 'surprised')); }); }, 1800);
   }
-  SQ.trigger(() => st() === 's12_study' && game().player.pos.x < -14.2 && game().player.pos.y < 2, () => {
+  SQ.trigger(() => st() === 's12_study' && game().player.pos.x < -13.8 && game().player.pos.z < -115.5 && game().player.pos.y < 2, () => {
     game().cinematic({ pos: V3(-15.2, 1.3, -116.2), look: V3(-16.2, 1.4, -119.9), dur: 99, soft: true });
     say([['milo', 'A map on the wall. Our town, the old wood, this cottage... and a mountain, with a lookout marked "Rose’s lookout".', 'surprised'], ['milo', 'A dotted red line goes past the mountain to a circle. "The little ones. (J. knows the way)"', 'surprised'], ['milo', 'And a letter on the desk...', 'think'], { do: () => game().give('arloletter') },
       ['milo', '"Juniper keeps vanishing toward the mountains. I followed her once, past Rose’s lookout. There are little folk up there, with a village of their own. Rose’s roses grow by their doors."', 'surprised'], ['milo', '"I never told anyone. Who would believe an old clockmaker? But Juniper visits them, and she takes them Ellie’s song."', 'think'],

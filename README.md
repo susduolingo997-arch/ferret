@@ -85,3 +85,19 @@ A locked maintenance cabinet stands beside Pemberton's Corner Shop. Its code is 
 - Chapter skip (1–6 and the Road Trip)
 - Quest and mission completion, all collectibles, all items, fast travel
 - Time and weather, super speed, a chase trigger, and teleports
+
+## Merged build: three bonus chapters
+This build combines the sequel branch (chapters 6–14, Saltwhistle Bay, graphics presets, weather, credits) with the road-trip and farm branch:
+- The drive to the gas station is fully animated (backing out, the highway, life in the back seat). At the gas station, a chip bag gives Milo three choices:
+  - jump out: **The Failed Road Trip**
+  - nap until **Grandpa Arlo's Farm** (Bonus Chapter III, `js/farm.js`)
+  - stay awake for **Saltwhistle Bay** (Bonus Chapter II, `js/arlo.js`)
+- The admin panel can jump to every bonus chapter.
+- `trailer.html` plays a 3D trailer built on the game engine.
+
+## Bonus Chapter IV: What Is This Place? (`js/backrooms.js`)
+From chapter 2 on, a patch of the backyard fence (back left corner) flickers. Sniff it and Milo noclips into **Level 0**: a maze of yellow wallpaper, damp carpet and humming fluorescent lights.
+- Find three bottles of almond water. Scent vision (Q) points to the nearest one.
+- Something walks the halls. When the hum gets loud and the lights flicker, run (Shift). If it catches Milo, he is back where he woke up, and he keeps his bottles.
+- With all three bottles, the EXIT door lights up. Go through it to wake up at home.
+- The admin panel lists it as chapter "?".

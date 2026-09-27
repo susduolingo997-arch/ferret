@@ -24,7 +24,7 @@
   const LOOKS = {
     ellie: { name: 'Ellie', height: 1.36, skin: 0xf0c09a, hair: 0x5a2c16, hairStyle: 'pigtails', shirt: 0xf5a623, pants: 0x2f5f9a, shoes: 0xd9573b, dress: false, shorts: true, socks: 0xffffff, cheeks: true, tie: 0xd9573b, stripe: 0xffffff },
     mum: { name: 'Mum', height: 1.68, skin: 0xeab68f, hair: 0x4a2414, hairStyle: 'bun', shirt: 0xf3efe4, pants: 0x2c3e5c, shoes: 0x5a3a2a, glasses: true, cardigan: 0x3f8a74 },
-    arlo: { name: 'Grandpa Arlo', height: 1.7, skin: 0xe8b48f, hair: 0xe8e4dc, hairStyle: 'bald', shirt: 0xf2ebe0, pants: 0x6a5a48, shoes: 0x4a3226, glasses: true, cardigan: 0x8a5a3a, mustache: 0xe8e4dc, beard: 0xe8e4dc },
+    arlo: { name: 'Grandpa Arlo', height: 1.7, skin: 0xe6b28e, hair: 0xe9e4dc, hairStyle: 'flatcap', cap: 0x7a6248, shirt: 0xe8dcc0, pants: 0x5a4a3a, shoes: 0x4a3222, glasses: true, cardigan: 0xa8612f, beard: 0xefeae2, belly: true },
     gus: { name: 'Gus', height: 1.8, skin: 0xd9a47e, hair: 0x5a4a3a, hairStyle: 'cap', cap: 0xd2342a, shirt: 0x3f6f9e, pants: 0x3f6f9e, shoes: 0x2a2420, overalls: true, mustache: 0x6a5a4a, belly: true },
   };
   class Human {
@@ -77,6 +77,7 @@
       const nose = mesh(SPH, mat(o.skin - 0x080808, 0.55), 0, -0.018, 0.112); nose.scale.set(0.017, 0.022, 0.02); head.add(nose);
       const mouth = (this.mouth = mesh(new THREE.TorusGeometry(0.022, 0.005, 6, 14, Math.PI), mat(0x9a3a3a, 0.5), 0, -0.058, 0.098)); mouth.rotation.z = Math.PI; head.add(mouth);
       if (o.cheeks) for (const s of [-1, 1]) { const c = new THREE.Mesh(new THREE.CircleGeometry(0.018, 12), new THREE.MeshBasicMaterial({ color: 0xf0a0a0, transparent: true, opacity: 0.55 })); c.position.set(s * 0.066, -0.03, 0.094); c.rotation.y = s * 0.5; head.add(c); }
+      if (o.beard) { const bm = mat(o.beard, 0.95); const bd = mesh(SPH, bm, 0, -0.065, 0.045); bd.scale.set(0.085, 0.07, 0.07); head.add(bd); const ms = mesh(SPH, bm, 0, -0.035, 0.1); ms.scale.set(0.05, 0.016, 0.02); head.add(ms); for (const sd of [-1, 1]) { const br = mesh(new THREE.BoxGeometry(0.04, 0.012, 0.012), bm, sd * 0.04, 0.045, 0.1); br.rotation.z = -sd * 0.15; head.add(br); } }
       if (o.mustache) { const m = mesh(new THREE.BoxGeometry(0.07, 0.014, 0.02), mat(o.mustache, 0.8), 0, -0.038, 0.108); head.add(m); }
       if (o.glasses) { const gm = mat(0x3a2a20, 0.3); for (const s of [-1, 1]) { const r = mesh(new THREE.TorusGeometry(0.026, 0.004, 6, 18), gm, s * 0.04, 0.008, 0.108); head.add(r); } head.add(mesh(new THREE.BoxGeometry(0.03, 0.005, 0.005), gm, 0, 0.012, 0.11)); }
       // hair
@@ -93,6 +94,11 @@
         for (const s of [-1, 1]) { const side = mesh(SPH, hair, s * 0.09, -0.01, -0.02); side.scale.set(0.035, 0.07, 0.07); head.add(side); }
         const bun = mesh(SPH, hair, 0, 0.1, -0.075); bun.scale.setScalar(0.05); head.add(bun);
         const sw = mesh(SPH, hair, -0.03, 0.08, 0.07); sw.scale.set(0.07, 0.025, 0.04); sw.rotation.z = 0.3; head.add(sw);
+      } else if (o.hairStyle === 'flatcap') {
+        for (const sd of [-1, 1]) { const tuft = mesh(SPH, hair, sd * 0.1, -0.005, -0.03); tuft.scale.set(0.035, 0.05, 0.075); head.add(tuft); }
+        const bk = mesh(SPH, hair, 0, -0.01, -0.085); bk.scale.set(0.09, 0.06, 0.04); head.add(bk);
+        const fc = mesh(new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), mat(o.cap, 0.9, { map: 'fabric' }), 0, 0.035, 0.01); fc.scale.set(0.125, 0.09, 0.13); fc.rotation.x = 0.18; head.add(fc);
+        const bill = mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.012, 16, 1, false, -Math.PI / 2, Math.PI), mat(o.cap, 0.9, { map: 'fabric' }), 0, 0.062, 0.095); bill.scale.z = 0.7; bill.rotation.x = 0.12; head.add(bill);
       } else if (o.hairStyle === 'cap') {
         cap(1, Math.PI * 0.45, 0, 0.02, -0.01, 0.12, 0.12, 0.12, -0.1);
         const c = mesh(new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(o.cap, 0.6), 0, 0.04, 0); c.scale.set(0.12, 0.09, 0.125); head.add(c);
@@ -118,7 +124,7 @@
     /* pose blending: every frame compute target joint angles for the current action */
     update(dt, st = {}) {
       this.t += dt; const t = this.t, sp = this.speed, act = st.action || this.pose;
-      const walking = sp > 0.1 && !['sit', 'drive', 'lie', 'sitbed', 'fall'].includes(act);
+      const walking = sp > 0.1 && !this.seated && !['sit', 'drive', 'lie', 'sitbed', 'fall'].includes(act);
       const run = sp > 2;
       this.ph += dt * (walking ? (run ? sp * 3.1 : sp * 5.4) : 0);
       const J = { hipY: 0.93, hipRX: 0, spine: 0, head: 0, headY: 0, th: [0, 0], kn: [0, 0], ft: [0, 0], shX: [0, 0], shZ: [0.12, -0.12], el: [-0.15, -0.15], rootRX: 0, handY: 0 };
@@ -151,11 +157,17 @@
         case 'lift': J.shX = [-1.9 + Math.sin(t * 2) * 0.1, -1.9 + Math.sin(t * 2) * 0.1]; J.el = [-0.4, -0.4]; J.head = -0.3; break;
         case 'garden': J.hipY = 0.35; J.th = [-1.9, -1.9]; J.kn = [2.4, 2.4]; J.spine = 0.6; J.shX = [-1.1, -1.1]; J.el = [-0.3 + Math.sin(t * 4) * 0.3, -0.3]; J.head = 0.5; break;
       }
+      if (this.seated && !['sit', 'read', 'drive', 'sitfloor', 'sitbed', 'lie'].includes(act)) { J.hipY = 0.48 + (J.hipY - 0.93) * 0.5; J.th = [-1.5, -1.5]; J.kn = [1.5, 1.5]; J.spine = Math.min(J.spine, 0.2); }
+      if (act === 'sing') { const cl = Math.max(0, Math.sin(t * 7)); J.headY = Math.sin(t * 3) * 0.35; J.head = -0.15; J.shX = [-0.95, -0.95]; J.el = [-1.25, -1.25]; J.shZ = [-0.05 + cl * 0.3, 0.05 - cl * 0.3]; J.spine += Math.sin(t * 3) * 0.05; }
+      if (act === 'sleepfloor') { J.hipY = 0.16; J.th = [-1.45, -1.45]; J.kn = [2.2, 2.2]; J.spine = 0.3; J.shX = [-0.5, -0.5]; J.el = [-0.9, -0.9]; J.head = 0.6; J.headY = 0.35; }
+      if (act === 'sleepsit') { J.head = 0.55; J.headY = 0.35; J.spine = -0.05; J.shX = [-0.4, -0.4]; J.el = [-0.9, -0.9]; }
+      if (act === 'give') { J.shX[0] = -1.3; J.el[0] = -0.3; J.head = 0.25; }
+      if (act === 'jump') { J.shZ = [2.6, -2.6]; J.el = [-0.3, -0.3]; J.hipY += Math.abs(Math.sin(t * 7)) * 0.12; }
       // blend toward targets
       const k = 1 - Math.exp(-12 * dt), L = (a, b) => a + (b - a) * k;
       this.hips.position.y = L(this.hips.position.y, J.hipY); this.spine.rotation.x = L(this.spine.rotation.x, J.spine);
-      this.legs.forEach((l, i) => { l.th.rotation.x = L(l.th.rotation.x, J.th[i]); l.kn.rotation.x = L(l.kn.rotation.x, J.kn[i]); l.ft.rotation.x = L(l.ft.rotation.x, -(J.th[i] + J.kn[i]) * 0.5 + (act === 'sitbed' || act === 'lie' ? 0.8 : 0)); });
-      this.arms.forEach((a, i) => { a.sh.rotation.x = L(a.sh.rotation.x, J.shX[i]); a.sh.rotation.z = L(a.sh.rotation.z, J.shZ[i] * (a.s > 0 ? 1 : 1)); a.el.rotation.x = L(a.el.rotation.x, J.el[i]); });
+      this.legs.forEach((l, i) => { l.th.rotation.x = L(l.th.rotation.x, J.th[i]); l.kn.rotation.x = L(l.kn.rotation.x, J.kn[i]); l.ft.rotation.x = L(l.ft.rotation.x, -(J.th[i] + J.kn[i]) * (walking && !run ? 0.75 : 0.9) + (walking ? Math.max(0, Math.sin(this.ph + (i ? Math.PI : 0))) * 0.25 : 0) + (act === 'sitbed' || act === 'lie' ? 0.8 : 0)); });
+      this.arms.forEach((a, i) => { a.sh.rotation.x = L(a.sh.rotation.x, J.shX[i]); a.sh.rotation.z = L(a.sh.rotation.z, -J.shZ[i]); a.el.rotation.x = L(a.el.rotation.x, J.el[i]); });
       const lookY = st.lookY !== undefined ? U.clamp(st.lookY, -1, 1) : Math.sin(t * 0.4) * 0.3;
       this.head.rotation.y = L(this.head.rotation.y, lookY + J.headY); this.head.rotation.x = L(this.head.rotation.x, J.head + (st.lookX || 0));
       // blinking, mouth, pigtails bounce
@@ -174,8 +186,8 @@
   /* ================================================================ movement helpers */
   function moveH(h, tx, tz, sp, dt, collide = true) {
     const g = game(), p = h.pos, dx = tx - p.x, dz = tz - p.z, l = Math.hypot(dx, dz);
-    if (l < 0.05) { h.speed = U.damp(h.speed, 0, 8, dt); return true; }
-    const step = Math.min(sp * dt, l); p.x += (dx / l) * step; p.z += (dz / l) * step; h.speed = sp;
+    if (l < 0.05) { h.speed = U.damp(h.speed, 0, 10, dt); return true; }
+    h.speed = U.damp(h.speed || 0, Math.min(sp, 0.6 + l * 2.2), 5, dt); const step = Math.min(h.speed * dt, l); p.x += (dx / l) * step; p.z += (dz / l) * step;
     h.yaw = U.dampAngle(h.yaw, Math.atan2(dx, dz), 9, dt);
     if (collide) for (const c of g.near(p.x - 0.4, p.x + 0.4, p.z - 0.4, p.z + 0.4)) {
       if (!c.on || !(p.y + 1.5 > c.y0 && p.y + 0.25 < c.y1)) continue;
@@ -189,12 +201,12 @@
 
   /* ================================================================ CARS */
   function makeCar(col, family) {
-    const g = new THREE.Group(), paint = mat(col, 0.25, { metal: 0.4, envI: 1.3 }), dark = mat(0x1c1c1e, 0.8), glass = Mt.get('glass'), chrome = Mt.get('chrome');
+    const g = new THREE.Group(), paint = mat(col, 0.25, { metal: 0.4, envI: 1.3 }), dark = mat(0x1c1c1e, 0.8), chrome = Mt.get('chrome'); let glass = Mt.get('glass'); if (family) { glass = glass.clone(); glass.side = THREE.FrontSide; glass.depthWrite = false; }
     const add = (m, x, y, z) => { m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
-    const low = add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.55, 4.3), paint), 0, 0.58, 0);
+    let low; if (family) { low = new THREE.Group(); low.position.set(0, 0.58, 0); g.add(low); const lp = (w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), paint); m.position.set(x, y, z); m.castShadow = true; low.add(m); }; lp(1.8, 0.1, 2.6, 0, -0.22, -0.35); for (const x of [-0.85, 0.85]) lp(0.1, 0.55, 2.6, x, 0, -0.35); lp(1.8, 0.55, 1.2, 0, 0, 1.55); lp(1.8, 0.55, 0.5, 0, 0, -1.9); } else low = add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.55, 4.3), paint), 0, 0.58, 0);
     add(new THREE.Mesh(new THREE.BoxGeometry(1.84, 0.12, 4.36), dark), 0, 0.36, 0);
-    const cab = add(new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.52, family ? 2.6 : 2.1), paint), 0, 1.1, family ? -0.35 : -0.15);
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.64, 0.4, family ? 2.5 : 2.0), glass), 0, 1.1, family ? -0.35 : -0.15);
+    const roof = []; const cab = add(new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.52, family ? 2.6 : 2.1), paint), 0, 1.1, family ? -0.35 : -0.15); roof.push(cab);
+    roof.push(add(new THREE.Mesh(new THREE.BoxGeometry(1.64, 0.4, family ? 2.5 : 2.0), glass), 0, 1.1, family ? -0.35 : -0.15));
     for (const s of [-1, 1]) { add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.05), mat(0xfff2c0, 0.2, { emissive: 0xfff2c0, ei: 0.5 })), s * 0.6, 0.66, 2.16); add(new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.1, 0.05), mat(0xc0392b, 0.3, { emissive: 0x801010, ei: 0.4 })), s * 0.62, 0.7, -2.16); }
     add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.06), chrome), 0, 0.5, 2.18);
     g.userData.wheels = [];
@@ -203,15 +215,34 @@
       // doors that open, a roof rack with luggage
       g.userData.doors = [];
       for (const [x, z, s] of [[0.91, 0.35, 1], [-0.91, 0.35, -1], [-0.91, -0.9, -1]]) { const d = new THREE.Group(); d.position.set(x, 0.4, z + 0.55); const p = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.95, 1.05), paint); p.position.set(0, 0.45, -0.52); p.castShadow = true; d.add(p); const wn = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.35, 0.8), glass); wn.position.set(0, 0.72, -0.52); d.add(wn); d.userData.s = s; g.add(d); g.userData.doors.push(d); }
+      // interior: seats, dashboard, steering wheel, liner, and Milo's basket
+      const inn = new THREE.Group(); g.add(inn); g.userData.interior = inn;
+      const seatM = mat(0x7a5a45, 0.85, { map: 'fabric' }), trimM = mat(0x3a3a3e, 0.7), linerM = mat(0xd9d2c4, 0.9, { map: 'fabric' });
+      const ib = (w, h, d, x, y, z, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.receiveShadow = true; inn.add(o); return o; };
+      for (const x of [0.42, -0.42]) { ib(0.5, 0.12, 0.5, x, 0.5, 0.3, seatM); ib(0.48, 0.44, 0.09, x, 0.76, 0.03, seatM).rotation.x = -0.15; ib(0.24, 0.12, 0.08, x, 1.04, -0.01, seatM); }
+      ib(1.5, 0.12, 0.5, 0, 0.5, -0.9, seatM); ib(1.5, 0.42, 0.09, 0, 0.76, -1.18, seatM).rotation.x = -0.15;
+      ib(1.62, 0.26, 0.34, 0, 0.9, 0.98, trimM); roof.push(ib(1.62, 0.02, 2.5, 0, 1.345, -0.35, linerM)); ib(1.62, 0.04, 2.6, 0, 0.38, -0.3, trimM);
+      for (const x of [-0.79, 0.79]) ib(0.03, 0.3, 2.5, x, 0.62, -0.35, trimM);
+      const sw = new THREE.Group(); sw.position.set(0.42, 1.02, 0.74); sw.rotation.x = -0.45; inn.add(sw); g.userData.wheel = sw;
+      const swr = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.018, 8, 24), trimM); sw.add(swr); const swh = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.03, 0.02), trimM); sw.add(swh);
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.3, 8), trimM); col.position.set(0.42, 0.95, 0.86); col.rotation.x = 1.1; inn.add(col);
+      const mirror = ib(0.22, 0.06, 0.02, 0, 1.28, 0.62, mat(0x9fb0c0, 0.1, { metal: 0.8 }));
+      const charm = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), mat(0xd4a347, 0.3, { metal: 0.7 })); charm.position.set(0, 1.18, 0.62); inn.add(charm); g.userData.charm = charm;
+      const basket = new THREE.Group(); basket.position.set(0.4, 0.56, -0.86); inn.add(basket); g.userData.basket = basket;
+      const wick = mat(0xc8995a, 0.9, { map: 'fabric' });
+      for (const [w, d, x, z] of [[0.52, 0.03, 0, 0.31], [0.52, 0.03, 0, -0.31], [0.03, 0.62, 0.25, 0], [0.03, 0.62, -0.25, 0]]) { const o = new THREE.Mesh(new THREE.BoxGeometry(w, 0.2, d), wick); o.position.set(x, 0.1, z); basket.add(o); }
+      const bl = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.6), mat(0xd9573b, 0.95, { map: 'fabric' })); bl.position.y = 0.05; basket.add(bl);
+      const hwin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.3, 0.7), mat(0x1c1c1e, 0.5)); hwin.position.set(0.8, 1.08, -0.85); hwin.visible = false; inn.add(hwin); g.userData.winSlot = hwin;
       const trunk = new THREE.Group(); trunk.position.set(0, 1.36, -1.65); const tp = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.8, 0.06), paint); tp.position.set(0, -0.4, -0.03); tp.castShadow = true; trunk.add(tp); g.add(trunk); g.userData.trunk = trunk;
-      add(new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.05, 1.8), dark), 0, 1.4, -0.35);
-      add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 0.6), mat(0xd98f6a, 0.7)), -0.2, 1.6, -0.2); add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.28, 0.5), mat(0x3f6fa0, 0.7)), 0.35, 1.56, -0.8);
+      roof.push(add(new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.05, 1.8), dark), 0, 1.4, -0.35));
+      roof.push(add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 0.6), mat(0xd98f6a, 0.7)), -0.2, 1.6, -0.2)); roof.push(add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.28, 0.5), mat(0x3f6fa0, 0.7)), 0.35, 1.56, -0.8));
       const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.14), new THREE.MeshBasicMaterial({ map: G.Tex.make('plate', 128, 36, (c) => { c.fillStyle = '#f2ebe0'; c.fillRect(0, 0, 128, 36); c.fillStyle = '#2a3a55'; c.font = 'bold 22px sans-serif'; c.fillText('FERRET 1', 14, 27); }) })); plate.position.set(0, 0.5, -2.19); plate.rotation.y = Math.PI; g.add(plate);
     }
+    g.userData.roof = roof; g.userData.cutaway = (on) => roof.forEach((m) => (m.visible = !on));
     g.userData.speed = 0; return g;
   }
-  function carTick(car, dt) { const s = car.userData.speed || 0; car.userData.wheels.forEach((w) => (w.rotation.x += s * dt / 0.34)); car.children[0].position.y = 0.58 + (s > 0.5 ? Math.sin(game().t * 18) * 0.008 : 0); }
-  function openDoor(car, i, open) { const d = car.userData.doors[i]; const from = d.rotation.y, to = open ? d.userData.s * 1.1 : 0; game().tween(0.5, (k) => (d.rotation.y = U.lerp(from, to, U.smooth(k)))); A.play(open ? 'door' : 'thud', 0.5); }
+  function carTick(car, dt) { const u = car.userData, s = u.speed || 0; u.steerV = U.damp(u.steerV || 0, u.steer || 0, 6, dt); u.steer = U.damp(u.steer || 0, 0, 2, dt); u.wheels.forEach((w, i) => { w.rotation.order = 'YXZ'; w.rotation.x += (u.rev ? -1 : 1) * s * dt / 0.34; if (i < 2) w.rotation.y = u.steerV; }); if (u.wheel) u.wheel.rotation.z = -u.steerV * 3 + Math.sin(game().t * 1.3) * 0.04 * Math.min(1, s); if (u.charm) u.charm.position.x = Math.sin(game().t * 2.2) * 0.02 * Math.min(1, s / 3); car.children[0].position.y = 0.58 + (s > 0.5 ? Math.sin(game().t * 18) * 0.008 : 0); }
+  function openDoor(car, i, open) { const d = car.userData.doors[i]; const from = d.rotation.y, to = open ? -d.userData.s * 1.1 : 0; game().tween(0.5, (k) => (d.rotation.y = U.lerp(from, to, U.smooth(k)))); A.play(open ? 'door' : 'thud', 0.5); }
 
   /* ================================================================ WORLD: highway, gas station, farmland */
   const oBuild = EXT.buildWorld;
@@ -222,6 +253,27 @@
     // ground
     H.plane(90.5, 216, -46, 61, 0, 'grass', 6); W.grassZones.push([96, 138, -44, 60, 0.35], [153, 214, 26, 60, 0.6], [153, 214, -45, -26, 0.5]);
     H.plane(139, 153, -160, 160, 0.012, 'asphalt', 6, { po: 1 });
+    // roadside scenery south of the station: fields, fences, telephone poles and signs (seen from the car)
+    H.plane(153, 216, -160, -46, -0.005, 'grass', 6); H.plane(90.5, 139, -160, -46, -0.005, 'grass', 6); W.grassZones.push([155, 214, -158, -48, 0.5], [92, 137, -158, -48, 0.5]);
+    for (let z = -158; z < -40; z += 22) { H.box({ w: 0.22, h: 7, d: 0.22, x: 156.2, z, mat: 'darkwood', col: false }); H.box({ w: 1.8, h: 0.12, d: 0.12, x: 156.2, y: 6.4, z, mat: 'darkwood', col: false }); H.box({ w: 0.22, h: 7, d: 0.22, x: 135.8, z: z + 11, mat: 'darkwood', col: false }); H.box({ w: 1.8, h: 0.12, d: 0.12, x: 135.8, y: 6.4, z: z + 11, mat: 'darkwood', col: false }); }
+    for (let z = -158; z < -48; z += 3) { H.box({ w: 0.1, h: 1.1, d: 0.1, x: 158.5, z, mat: 'shedwood', col: false }); H.box({ w: 0.1, h: 1.1, d: 0.1, x: 133.5, z, mat: 'shedwood', col: false }); }
+    H.box({ w: 0.05, h: 0.1, d: 110, x: 158.5, y: 0.9, z: -103, mat: 'shedwood', col: false }); H.box({ w: 0.05, h: 0.1, d: 110, x: 158.5, y: 0.5, z: -103, mat: 'shedwood', col: false });
+    H.box({ w: 0.05, h: 0.1, d: 110, x: 133.5, y: 0.9, z: -103, mat: 'shedwood', col: false }); H.box({ w: 0.05, h: 0.1, d: 110, x: 133.5, y: 0.5, z: -103, mat: 'shedwood', col: false });
+    const hwySign = (x, z, lines, w = 7) => { for (const dx of [-w / 2 + 0.6, w / 2 - 0.6]) H.box({ w: 0.2, h: 5.5, d: 0.2, x: x + dx, z: z + 0.1, mat: 'metal', col: false }); const tx = G.Tex.make('hwy' + lines[0], 512, 256, (c, W2, H2) => { c.fillStyle = '#1f6b43'; c.fillRect(0, 0, W2, H2); c.strokeStyle = '#f2ebe0'; c.lineWidth = 8; c.strokeRect(10, 10, W2 - 20, H2 - 20); c.fillStyle = '#f2ebe0'; c.textAlign = 'center'; lines.forEach((l, i) => { c.font = (i ? '40' : 'bold 54') + 'px sans-serif'; c.fillText(l, W2 / 2, 90 + i * 64); }); }); const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 2), new THREE.MeshStandardMaterial({ map: tx, roughness: 0.6 })); m.position.set(x, 5, z); m.rotation.y = Math.PI; root.add(m); const bk = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 2), Mt.get('metal')); bk.position.set(x, 5, z + 0.02); root.add(bk); };
+    hwySign(158.4, -95, ['EXIT 12', 'Gus’s Gas & Snacks', '1 mile'], 7); hwySign(133.8, -125, ['NORTH  ↑', 'Pinewood Farms  38', 'Maple Street  exit 11'], 8);
+    // cows grazing in the fields
+    C.cows = [];
+    const cowM = Mt.std('cowhide', { map: G.Tex.make('cowtex', 128, 128, (c) => { c.fillStyle = '#f2ede4'; c.fillRect(0, 0, 128, 128); c.fillStyle = '#2a2624'; for (let i = 0; i < 9; i++) { c.beginPath(); c.ellipse(Math.random() * 128, Math.random() * 128, 8 + Math.random() * 16, 6 + Math.random() * 12, Math.random() * 3, 0, 7); c.fill(); } }), rough: 0.9 });
+    for (const [x, z, r] of [[166, -120, 0.6], [171, -112, 2.2], [163, -86, -0.8], [120, -104, 1.4], [114, -140, 3.4], [176, -140, 0.2]]) {
+      const cw = dyn(new THREE.Group()); cw.position.set(x, 0, z); cw.rotation.y = r; root.add(cw);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.8, 1.8), cowM); body.position.y = 1.1; body.castShadow = true; cw.add(body);
+      for (const [lx, lz] of [[-0.32, 0.7], [0.32, 0.7], [-0.32, -0.7], [0.32, -0.7]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.75, 0.16), cowM); l.position.set(lx, 0.37, lz); cw.add(l); }
+      const hd = new THREE.Group(); hd.position.set(0, 1.35, 0.95); cw.add(hd); const hm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.6), cowM); hm.position.set(0, 0, 0.25); hd.add(hm);
+      const snout = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.26, 0.2), mat(0xe8a9a0, 0.7)); snout.position.set(0, -0.1, 0.58); hd.add(snout);
+      for (const sx of [-0.3, 0.3]) { const hn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.18, 6), mat(0xe8e0c8, 0.5)); hn.position.set(sx, 0.3, 0.15); hd.add(hn); }
+      const tail = new THREE.Group(); tail.position.set(0, 1.4, -0.9); cw.add(tail); const tm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.7, 0.05), cowM); tm.position.y = -0.35; tail.add(tm);
+      Object.assign(cw.userData, { head: hd, tail, ph: Math.random() * 6 }); dyn(cw); C.cows.push(cw);
+    }
     for (let z = -158; z < 160; z += 6) H.plane(145.85, 146.15, z, z + 3, 0.016, 'paint', 2, { po: 2 });
     for (const x of [139.6, 152.4]) H.plane(x - 0.08, x + 0.08, -160, 160, 0.016, M_paint(), 2, { po: 2 });
     for (const x of [139.2, 152.8]) { for (let z = -150; z < 150; z += 4) H.box({ w: 0.35, h: 0.8, d: 3.9, x, z: z + 2, mat: 'concrete', col: false }); H.collider(x - 0.2, x + 0.2, -160, 160, 0, 3, { cam: false }); }
@@ -299,34 +351,6 @@
     sub('corn', 'The Cornfield', 102.5, 128.5, -46, 61, { zone: 'town', surf: 'dirt' });
     sub('farmland', 'Farmland', 90.5, 216, -46, 61, { zone: 'town', surf: 'grass' });
     W.extraClear.push([98, -30, 3]);
-    // north of the farm: the fields the family drives past (seen from the car)
-    H.plane(92, 215, -160, -47, 0, 'grass', 6); W.grassZones.push([120, 138, -158, -48, 0.25], [154, 175, -158, -48, 0.25]);
-    const rowsM = Mt.std('croprows', { map: 'soil', color: 0x8a7a4a, rough: 1 });
-    H.plane(100, 134, -150, -112, 0.01, rowsM, 2, { po: 1 }); H.plane(158, 200, -140, -95, 0.01, Mt.std('wheatfield', { color: 0xc9a85a, rough: 1, map: 'grass' }), 3, { po: 1 });
-    for (let x = 101; x < 134; x += 1.6) H.box({ w: 0.5, h: 0.22, d: 37, x, y: 0, z: -131, mat: 'grass', col: false });
-    for (const [x, z] of [[170, -100], [182, -128], [190, -104], [165, -134]]) { const b = H.cyl({ r: 0.7, h: 1.1, x, y: 0.7, z, mat: Mt.std('hay', { color: 0xd9b860, rough: 1, map: 'bark' }), rz: Math.PI / 2, col: false }); b.rotation.y = x * 0.7; }
-    // a windmill
-    { const wm = new THREE.Group(); wm.position.set(118, 0, -88); root.add(wm);
-      const tw = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.4, 9, 10), Mt.get('white')); tw.position.y = 4.5; tw.castShadow = true; wm.add(tw);
-      const cap = new THREE.Mesh(new THREE.ConeGeometry(1.8, 2, 10), Mt.get('red')); cap.position.y = 10; cap.castShadow = true; wm.add(cap);
-      const hub = dyn(new THREE.Group()); hub.position.set(1.7, 8.6, 0); wm.add(hub); W.obj.windmill = hub;
-      for (let i = 0; i < 4; i++) { const arm = new THREE.Group(); arm.rotation.x = i * Math.PI / 2; hub.add(arm); const bl = new THREE.Mesh(new THREE.BoxGeometry(0.08, 5.5, 1.1), Mt.get('midwood')); bl.position.y = 2.9; bl.castShadow = true; arm.add(bl); dyn(bl); }
-      H.collider(116.4, 119.6, -89.6, -86.4, 0, 9, {}); }
-    // fences along the fields
-    for (const x of [134.5, 157.5]) for (let z = -158; z < -48; z += 2.5) { H.box({ w: 0.08, h: 0.9, d: 0.08, x, z, mat: 'darkwood', col: false }); H.box({ w: 0.05, h: 0.06, d: 2.5, x, y: 0.7, z: z + 1.25, mat: 'midwood', col: false }); }
-    // cows
-    C.cows = [];
-    const cowM = Mt.std('cowhide', { color: 0xf2efe8, rough: 0.9 }), spotM = Mt.std('cowspot', { color: 0x2a2420, rough: 0.9 }), noseM = Mt.std('cownose', { color: 0xe0a0a0, rough: 0.7 });
-    for (const [x, z, ry] of [[126, -70, 1.2], [122, -74, -0.4], [129, -63, 2.4], [170, -80, 0.8]]) {
-      const c = new THREE.Group(); c.position.set(x, 0, z); c.rotation.y = ry; root.add(c);
-      const b = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.8, 1.8), cowM); b.position.y = 1.05; b.castShadow = true; c.add(b);
-      for (const [sx, sz] of [[0.46, 0.2], [-0.46, -0.4], [0.2, -0.6]]) { const sp = new THREE.Mesh(new THREE.CircleGeometry(0.25, 10), spotM); sp.position.set(sx, 1.1, sz); sp.rotation.y = Math.sign(sx) * Math.PI / 2; c.add(sp); }
-      const hd = dyn(new THREE.Group()); hd.position.set(0, 1.25, 0.95); c.add(hd); const hm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.6), cowM); hm.position.z = 0.25; hm.castShadow = true; hd.add(hm); dyn(hm);
-      const ns = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.26, 0.12), noseM); ns.position.set(0, -0.1, 0.58); hd.add(ns); dyn(ns);
-      for (const s2 of [-1, 1]) { const hn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 6), Mt.get('white')); hn.position.set(s2 * 0.2, 0.3, 0.15); hn.rotation.z = -s2 * 0.6; hd.add(hn); dyn(hn); }
-      for (const [lx, lz] of [[0.3, 0.7], [-0.3, 0.7], [0.3, -0.7], [-0.3, -0.7]]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.7, 6), cowM); l.position.set(lx, 0.35, lz); l.castShadow = true; c.add(l); }
-      H.collider(x - 1, x + 1, z - 1, z + 1, 0, 1.5, { cam: false }); C.cows.push(hd);
-    }
     // road signs along the highway
     const rsign = (x, z, text, bg) => { const t = G.Tex.make('rsign-' + text, 512, 160, (c, w, h) => { c.fillStyle = bg; c.fillRect(0, 0, w, h); c.strokeStyle = '#f2ebe0'; c.lineWidth = 8; c.strokeRect(10, 10, w - 20, h - 20); c.fillStyle = '#f2ebe0'; c.font = 'bold 50px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; const L = text.split('|'); L.forEach((l, i) => c.fillText(l, w / 2, h / 2 + (i - (L.length - 1) / 2) * 56)); });
       const m = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.12), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5 })); m.position.set(x, 2.4, z); m.rotation.y = Math.PI; m.castShadow = true; root.add(m);
@@ -351,21 +375,23 @@
   const talk = (lines) => new Promise((res) => { if (SEQ.skip) return res(); game().say(lines, res); });
   /* a choice is never skipped: skipping the cutscene stops at it */
   const choose = (lines) => new Promise((res) => { SEQ.noSkip = true; const was = SEQ.skip; SEQ.skip = false; game().say(was ? lines.filter((l) => !Array.isArray(l) || l === lines[0]) : lines, () => { SEQ.noSkip = false; SEQ.skip = was; res(); }); });
-  const shot = (pos, look, sec) => { game().cinematic({ pos: V3(...pos), look: V3(...look), dur: 999 }); if (game().cine) game().cam.snap = !!SEQ.cut; SEQ.cut = false; return sec ? wait(sec) : Promise.resolve(); };
+  const shot = (pos, look, sec) => { cutaway(false); SEQ.track = null; SEQ.trackL = null; game().cinematic({ pos: V3(...pos), look: V3(...look), dur: 999 }); if (game().cine) game().cam.snap = !!SEQ.cut; SEQ.cut = false; return sec ? wait(sec) : Promise.resolve(); };
   const cut = (pos, look, sec) => { SEQ.cut = true; return shot(pos, look, sec); };
-  const track = (obj, off, lookOff) => { SEQ.track = obj ? { obj, off: V3(...off), look: V3(...(lookOff || [0, 0.5, 0])) } : null; };
+  const track = (obj, off, lookOff, lock = true) => { cutaway(false); SEQ.trackL = null; SEQ.track = obj ? { obj, off: V3(...off), look: V3(...(lookOff || [0, 0.5, 0])), lock } : null; if (!obj && game().cine) game().cine.lock = false; };
+  const cutaway = (on) => { const c = C.car; if (c && c.userData.cutaway) c.userData.cutaway(on); };
+  const trackL = (obj, off, look, cut = true) => { cutaway(!!obj && cut); SEQ.track = null; SEQ.trackL = obj ? { obj, off: V3(...off), look: V3(...look) } : null; if (!obj && game().cine) game().cine.lock = false; if (obj && !game().cine) game().cinematic({ pos: V3(), look: V3(), dur: 999 }); };
   /* move an actor (human, car, or 'milo') along points; resolves when there */
-  const go = (actor, pts, speed) => new Promise((res) => { if (SEQ.skip) { const e = pts[pts.length - 1]; place(actor, e); return res(); } SEQ.moves.push({ actor, pts: pts.map((p) => p.slice()), speed, res }); });
+  const go = (actor, pts, speed, opt = {}) => new Promise((res) => { if (SEQ.skip) { const e = pts[pts.length - 1]; place(actor, e); if (actor.isObject3D && pts.length > 1) { const a = pts[pts.length - 2]; actor.rotation.y = Math.atan2((e[0] - a[0]) * (opt.rev ? -1 : 1), ((e.length > 2 ? e[2] : e[1]) - (a.length > 2 ? a[2] : a[1])) * (opt.rev ? -1 : 1)); } return res(); } for (let i = SEQ.moves.length - 1; i >= 0; i--) if (SEQ.moves[i].actor === actor) { SEQ.moves[i].res('cancel'); SEQ.moves.splice(i, 1); } SEQ.moves.push({ actor, pts: pts.map((p) => p.slice()), speed, res, rev: !!opt.rev, stall: 0 }); });
   function place(actor, e) { if (actor === 'milo') { const p = game().player; p.teleport(e[0], e.length > 2 ? e[1] : 0, e.length > 2 ? e[2] : e[1], p.yaw); } else if (actor.isObject3D) { actor.position.set(e[0], 0, e.length > 2 ? e[2] : e[1]); } else { actor.pos.set(e[0], 0, e.length > 2 ? e[2] : e[1]); } }
   async function cutscene(fn) {
     const g = game(); SEQ.running = true; SEQ.skip = false; g.state = 'cutscene'; g.busy = true; UI().showHUD(false); UI().letterbox(true); I.unlock();
     document.getElementById('skipHint').hidden = false;
     try { await fn(); } catch (e) { console.error(e); }
     document.getElementById('skipHint').hidden = true;
-    SEQ.running = false; SEQ.skip = false; SEQ.track = null; SEQ.moves.forEach((m) => m.res()); SEQ.moves = [];
+    cutaway(false); SEQ.running = false; SEQ.skip = false; SEQ.track = null; SEQ.trackL = null; C.ride = null; C.mochiRide = null; SEQ.moves.forEach((m) => m.res()); SEQ.moves = [];
     g.cinematicEnd(); g.busy = false; if (g.state === 'cutscene') g.state = 'play'; UI().showHUD(true); UI().updateObjective(true);
   }
-  function skipCutscene() { if (!SEQ.running || SEQ.skip || SEQ.noSkip) return; SEQ.skip = true; SEQ.lastSkip = performance.now(); if (UI().dialogueOpen) { UI().queue = []; UI().choosing = false; UI().next(); } SEQ.waits.forEach((w) => w.res()); SEQ.waits = []; for (const m of SEQ.moves) { place(m.actor, m.pts[m.pts.length - 1]); m.res(); } SEQ.moves = []; }
+  function skipCutscene() { if (!SEQ.running || SEQ.skip || SEQ.choosing || SEQ.noSkip || game().t - (SEQ.skipT ?? -9) < 0.35) return; SEQ.skip = true; SEQ.lastSkip = performance.now(); SEQ.skipT = game().t; if (UI().dialogueOpen) { UI().queue = []; UI().choosing = false; UI().next(); } SEQ.waits.forEach((w) => w.res()); SEQ.waits = []; for (const m of SEQ.moves) { place(m.actor, m.pts[m.pts.length - 1]); m.res(); } SEQ.moves = []; }
   function seqUpdate(dt) {
     const g = game(), t = g.t;
     for (let i = SEQ.waits.length - 1; i >= 0; i--) if (t >= SEQ.waits[i].t) { SEQ.waits[i].res(); SEQ.waits.splice(i, 1); }
@@ -373,26 +399,37 @@
       const m = SEQ.moves[i], a = m.actor, w = m.pts[0];
       if (!w) { m.res(); SEQ.moves.splice(i, 1); continue; }
       const tz = w.length > 2 ? w[2] : w[1];
-      if (a === 'milo') { const p = g.player; p.auto = { x: w[0], z: tz, speed: m.speed }; if (Math.hypot(p.pos.x - w[0], p.pos.z - tz) < 0.18) m.pts.shift(); }
-      else if (a.isObject3D) { const dx = w[0] - a.position.x, dz = tz - a.position.z, l = Math.hypot(dx, dz); a.userData.speed = m.speed; const st = Math.min(m.speed * dt, l); if (l > 0.01) { a.position.x += dx / l * st; a.position.z += dz / l * st; a.rotation.y = U.dampAngle(a.rotation.y, Math.atan2(dx, dz), 4, dt); } if (l < 0.2) { m.pts.shift(); if (!m.pts.length) a.userData.speed = 0; } }
+      if (a === 'milo') { const p = g.player; p.auto = { x: w[0], z: tz, speed: m.speed }; const dd = Math.hypot(p.pos.x - w[0], p.pos.z - tz); m.stall = dd < (m.lastD || 1e9) - 0.02 ? 0 : m.stall + dt; m.lastD = dd; if (m.stall > 1.2) { p.teleport(w[0], p.pos.y, tz, p.yaw); m.stall = 0; } if (dd < 0.18) { m.pts.shift(); m.lastD = 1e9; if (!m.pts.length) p.auto = null; } }
+      else if (a.isObject3D) {
+        const dx = w[0] - a.position.x, dz = tz - a.position.z, l = Math.hypot(dx, dz), last = m.pts.length === 1;
+        let rem = l; for (let j = 1; j < m.pts.length; j++) { const p0 = m.pts[j - 1], p1 = m.pts[j]; rem += Math.hypot(p1[0] - p0[0], (p1.length > 2 ? p1[2] : p1[1]) - (p0.length > 2 ? p0[2] : p0[1])); }
+        const target = Math.min(m.speed, 0.35 + Math.sqrt(rem) * 2.2), cur = (a.userData.speed = U.damp(a.userData.speed || 0, target, target > (a.userData.speed || 0) ? 1.2 : 3, dt));
+        a.userData.rev = m.rev;
+        const want = m.rev ? Math.atan2(-dx, -dz) : Math.atan2(dx, dz), diff = Math.abs(U.angDiff(a.rotation.y, want)); a.userData.steer = U.clamp(U.angDiff(a.rotation.y, want) * (m.rev ? -1 : 1), -0.5, 0.5);
+        if (l > 0.02) a.rotation.y = U.dampAngle(a.rotation.y, want, (last && l < 1.2 ? 1.5 : 3.2) + cur * 0.25, dt);
+        const st = Math.min(cur * dt, l), fwd = diff > 1.2 && l < 3 ? 0.3 : 1;
+        if (last && l < 1.5) { if (l > 1e-5) { a.position.x += dx / l * st; a.position.z += dz / l * st; } }
+        else { const sg = m.rev ? -1 : 1; a.position.x += Math.sin(a.rotation.y) * st * fwd * sg; a.position.z += Math.cos(a.rotation.y) * st * fwd * sg; }
+        if (l < (last ? 0.06 : 0.9) || (!last && diff > 1.6 && l < 4)) { m.pts.shift(); if (!m.pts.length) a.userData.speed = 0; }
+        const body = a.children[0]; if (body) body.rotation.x = U.damp(body.rotation.x, U.clamp((target - cur) * 0.02, -0.03, 0.03), 4, dt);
+      }
       else { if (moveH(a, w[0], tz, m.speed, dt, false)) m.pts.shift(); }
     }
-    if (SEQ.track && g.cine) { const o = SEQ.track.obj, p = o.isObject3D ? o.position : o === 'milo' ? g.player.pos : o.pos; g.cine.pos.copy(p).add(SEQ.track.off); g.cine.look.copy(p).add(SEQ.track.look); }
+    if (SEQ.track && g.cine) { const o = SEQ.track.obj, p = o.isObject3D ? o.position : o === 'milo' ? g.player.pos : o.pos; g.cine.pos.copy(p).add(SEQ.track.off); g.cine.look.copy(p).add(SEQ.track.look); g.cine.lock = !!SEQ.track.lock; }
+    if (SEQ.trackL && g.cine) { const L = SEQ.trackL; L.obj.updateMatrixWorld(true); g.cine.pos.copy(L.obj.localToWorld(L.off.clone())); g.cine.look.copy(L.obj.localToWorld(L.look.clone())); const sp = (L.obj.userData.speed || 0); g.cine.pos.y += Math.sin(t * 17) * 0.004 * Math.min(1, sp / 5) + Math.sin(t * 1.7) * 0.01; g.cine.lock = true; }
   }
 
   /* ================================================================ CAST */
-  const C = (G.Cast = {});
+  const C = (G.Cast = {}); C.chaseDefs = {}; C.extraHumans = [];
   C.init = function (g) {
     for (const id of ['ellie', 'mum', 'gus', 'arlo']) { const h = (C[id] = new Human(id)); h.root.visible = false; g.scene.add(h.root); }
     C.bedEllie = new Human('ellie'); G.World.obj.ellie.add(C.bedEllie.root);
     G.World.obj.ellie.children.forEach((c, i) => { if (i > 0 && c !== C.bedEllie.root) c.visible = false; });
     C.car = makeCar(0x5a8fa8, true); C.car.visible = false; g.scene.add(C.car);
-    C.driver = new Human('mum'); C.driver.pose = 'drive'; C.car.add(C.driver.root); C.driver.root.position.set(0.42, 0.05, 0.25); C.driver.root.scale.setScalar(0.95);
-    C.passenger = new Human('ellie'); C.passenger.pose = 'sit'; C.car.add(C.passenger.root); C.passenger.root.position.set(-0.42, 0.05, -0.9);
-    // Milo, head out of the back window, for the drive
-    C.peekF = new G.Ferret({}); C.peek = C.peekF.root; C.peek.visible = false; C.car.add(C.peek); C.peek.position.set(-0.52, 0.86, -0.9); C.peek.rotation.y = -Math.PI / 2; C.peekF.shadow.visible = false;
+    C.driver = new Human('mum'); C.driver.pose = 'drive'; C.car.add(C.driver.root); C.driver.pos.set(0.42, 0.06, 0.28); C.driver.root.scale.setScalar(0.95);
+    C.passenger = new Human('ellie'); C.passenger.pose = 'sit'; C.car.add(C.passenger.root); C.passenger.pos.set(-0.4, 0.16, -0.86); C.passenger.seated = true;
     C.traffic = []; const tc = [0xd9573b, 0xf2c14e, 0x3f6fa0, 0xe8e4d8, 0x2f5d4a, 0x6a4a8a, 0x1c1c1e, 0xb8b8bd];
-    for (let i = 0; i < 10; i++) { const car = makeCar(tc[i % tc.length], false); const lane = i % 2 ? 1 : -1; car.userData.lane = lane; car.position.set(146 + lane * 3, 0, -150 + i * 31); car.rotation.y = lane > 0 ? Math.PI : 0; car.userData.speed = 16 + Math.random() * 6; g.scene.add(car); C.traffic.push(car); }
+    for (let i = 0; i < 10; i++) { const car = makeCar(tc[i % tc.length], false); const lane = i % 2 ? 1 : -1; car.userData.lane = lane; car.position.set(lane > 0 ? 144.8 : (i % 4 ? 147.4 : 150.6), 0, -150 + i * 31); car.rotation.y = lane > 0 ? 0 : Math.PI; car.userData.speed = 16 + Math.random() * 6; g.scene.add(car); C.traffic.push(car); }
     // portraits
     const shotH = (id) => { const h = new Human(id); h.update(0.016, {}); h.update(0.5, {}); const p = V3(); h.head.getWorldPosition(p); return G.Portrait.shot('h_' + id, h.root, V3(p.x + 0.12, p.y + 0.02, p.z + 0.62), V3(p.x, p.y - 0.02, p.z)); };
     G.UI.portraitsExtra = G.UI.portraitsExtra || {}; for (const id of ['ellie', 'mum', 'gus', 'arlo']) G.UI.portraitsExtra[id] = shotH(id);
@@ -428,7 +465,7 @@
   };
   function homeAvailable(id) {
     const s = S(), c = s.chapter, e = G.env || {}, day = (e.night || 0) < 0.55;
-    if (SEQ.running || s.chapter === 7 || game().state === 'title') return false;
+    if (SEQ.running || s.chapter >= 7 || game().state === 'title') return false;
     if (!day) return false;
     if (id === 'mum') return [2, 3, 4, 6].includes(c) || c >= 10;
     return [4, 6].includes(c) || c >= 10 || (c === 2 && !!(s.quests || {}).mochi);
@@ -486,12 +523,14 @@
   function startChase(h, why) {
     const g = game(); C.chaser = h; h.chase = { why, t: 0, shelter: 0, far: 0, lunge: 0, stumble: 0, repath: 0 }; h.path = []; h.root.visible = true;
     A.play('woof'); A.play('squeak');
-    UI().toast(why === 'gus' ? '<b>Escape!</b>' : '<b>Uh oh!</b>', G.UI.portraitsExtra[h.id], why === 'bath' ? 'Bath time! Escape: hide under furniture or run outside.' : why === 'sock' ? 'Ellie wants her sock back. Don’t get caught!' : 'Gus is trying to catch you. Hide under the truck or a car, or outrun him.');
+    const def = C.chaseDefs[why];
+    if (def) UI().toast(def.title || '<b>Uh oh!</b>', G.UI.portraitsExtra[h.id], def.msg); else UI().toast(why === 'gus' ? '<b>Escape!</b>' : '<b>Uh oh!</b>', G.UI.portraitsExtra[h.id], why === 'bath' ? 'Bath time! Escape: hide under furniture or run outside.' : why === 'sock' ? 'Ellie wants her sock back. Don’t get caught!' : 'Gus is trying to catch you. Hide under the truck or a car, or outrun him.');
     document.body.classList.add('chased');
   }
   function endChase(h, caught) {
     document.body.classList.remove('chased'); const why = h.chase.why; h.chase = null; C.chaser = null; h.pose = 'idle'; h.path = [];
     if (!caught) {
+      const def = C.chaseDefs[why]; if (def) { UI().toast('<b>You escaped!</b>', G.UI.portraitsExtra[h.id], def.escaped); A.play('secret'); game().player.happy(); S().flags['escaped_' + why] = (S().flags['escaped_' + why] || 0) + 1; if (def.onEscaped) def.onEscaped(h); return; }
       const l = { bath: ['mum', 'Where did that ferret GO? ...Fine. Bath tomorrow.', 'think'], sock: ['ellie', 'Hmph. Keep the sock. I have like forty.', 'smug'], gus: ['gus', 'Huh. Where’d the little noodle go? Slippery as a greased hot dog.', 'think'] }[why];
       UI().toast(`<b>You escaped!</b>`, G.UI.portraitsExtra[h.id], l[1]); A.play('secret'); game().player.happy();
       S().flags['escaped_' + why] = (S().flags['escaped_' + why] || 0) + 1;
@@ -507,14 +546,15 @@
     if (ch.stumble > 0) { ch.stumble -= dt; h.pose = 'fall'; h.speed = 0; if (ch.stumble <= 0 && Math.random() < 0.5) game().say([[h.id, h.id === 'gus' ? 'Oof! My knee! ...Okay. OKAY. You’re fast.' : h.id === 'mum' ? 'Whoa! Slippery little...' : 'Wheee- oof!', 'surprised']]); return; }
     if (ch.lunge > 0) { ch.lunge -= dt; h.pose = 'lunge'; moveH(h, h.pos.x + Math.sin(h.yaw) * 2, h.pos.z + Math.cos(h.yaw) * 2, 2.6, dt); if (ch.lunge <= 0) { const dd = Math.hypot(pl.pos.x - h.pos.x, pl.pos.z - h.pos.z); if (dd < 0.75 && !hid) { endChase(h, true); } else { ch.stumble = 1.5; A.play('thud'); } } return; }
     // give up conditions: hiding under things, too far away, or out of reach
-    const outOfArea = ch.why === 'gus' ? pl.pos.z > 25.3 || pl.pos.y < -5 : !(G.env.area && G.env.area.zone === 'house');
+    const def = C.chaseDefs[ch.why];
+    const outOfArea = def ? def.outOfArea(pl) : ch.why === 'gus' ? pl.pos.z > 25.3 || pl.pos.y < -5 : !(G.env.area && G.env.area.zone === 'house');
     if (hid && d < 3.5) ch.shelter += dt; else ch.shelter = Math.max(0, ch.shelter - dt * 0.5);
-    if (d > (ch.why === 'gus' ? 16 : 11)) ch.far += dt; else ch.far = 0;
-    if (ch.shelter > 3.5 || ch.far > 3 || outOfArea || ch.t > 45) { endChase(h, false); return; }
+    if (d > (def ? def.far : ch.why === 'gus' ? 16 : 11)) ch.far += dt; else ch.far = 0;
+    if (ch.shelter > 3.5 || ch.far > 3 || outOfArea || ch.t > (def && def.maxT ? def.maxT : 45)) { endChase(h, false); return; }
     if (hid && d < 1.4) { h.pose = 'reach'; h.speed = 0; if (Math.random() < dt * 0.5) UI().toast(`<b>${h.o.name}</b>`, G.UI.portraitsExtra[h.id], '"I can’t reach under there..."'); return; }
     h.pose = 'idle';
-    ch.repath -= dt; if (ch.repath <= 0) { ch.repath = 0.7; h.path = G.World.navPath([h.pos.x, 0, h.pos.z], [pl.pos.x, 0, pl.pos.z]).slice(1); if (d < 5) h.path = [[pl.pos.x, 0, pl.pos.z]]; }
-    followPath(h, dt, h.id === 'gus' ? 2.9 : h.id === 'ellie' ? 3 : 2.6);
+    ch.repath -= dt; if (ch.repath <= 0) { ch.repath = 0.7; h.path = def && def.direct ? [[pl.pos.x, 0, pl.pos.z]] : G.World.navPath([h.pos.x, 0, h.pos.z], [pl.pos.x, 0, pl.pos.z]).slice(1); if (d < 5) h.path = [[pl.pos.x, 0, pl.pos.z]]; }
+    followPath(h, dt, def ? def.speed : h.id === 'gus' ? 2.9 : h.id === 'ellie' ? 3 : 2.6);
     if (d < 1.35 && !hid) { ch.lunge = 0.45; A.play('jump'); }
   }
   async function caughtScene(h, why) {
@@ -522,6 +562,7 @@
     await cutscene(async () => {
       C.carried = h; h.pose = 'lift'; A.play('squeak');
       shot([h.pos.x + 1.6, 1.4, h.pos.z + 1.6], [h.pos.x, 1.1, h.pos.z]);
+      if (C.chaseDefs[why] && C.chaseDefs[why].caught) { await C.chaseDefs[why].caught(h); return; }
       if (why === 'gus') {
         await talk([['gus', 'GOTCHA! Heh. Now let’s find you a nice box while I call somebody...', 'happy']]);
         h.pose = 'carry'; await wait(0.6); A.play('squeak'); pl.act('shake', 1);
@@ -589,123 +630,202 @@
     });
   }
   const hideMilo = (v) => { game().player.f.root.visible = !v; };
+  /* door side in world space: side 1 = driver door (right, +x local), -1 = Ellie's rear door (left) */
+  const doorPt = (car, side, out = 0) => { car.updateMatrixWorld(true); const v = car.localToWorld(V3(side * (0.75 + out), 0, side < 0 ? -0.95 : 0.35)); return [v.x, v.z]; };
+  function pinMilo() {
+    const pl = game().player;
+    pl.pin = () => {
+      if (C.ride) { const R = C.ride; R.car.updateMatrixWorld(true); return { p: R.car.localToWorld(R.off.clone()), yaw: R.car.rotation.y + (R.yaw || 0) }; }
+      if (C.carried) { const h = C.carried, hp = h.handPos(V3()); hp.y -= 0.05; return { p: hp, yaw: h.yaw + Math.PI / 2 }; }
+      return null;
+    };
+  }
+  const pickUp = (h) => { const pl = game().player; pl.auto = null; pl.vel && pl.vel.set(0, 0, 0); pl.action = null; C.carried = h; A.play('squeak', 0.5); };
+  const putDown = (h) => { const pl = game().player; C.carried = null; const x = h.pos.x + Math.sin(h.yaw) * 0.55, z = h.pos.z + Math.cos(h.yaw) * 0.55; pl.teleport(x, 0, z, h.yaw); A.play('dook', 0.6); };
+  async function exitCar(car, h, side, walkTo, speed = 1.3) {
+    const [x, z] = doorPt(car, side); h.pos.set(x, 0, z); h.yaw = car.rotation.y + side * Math.PI / 2; h.speed = 0; h.root.visible = true;
+    const [ox, oz] = doorPt(car, side, 0.8); await go(h, [[ox, oz]].concat(walkTo ? [walkTo] : []), speed);
+  }
+  async function enterCar(car, h, side, speed = 1.4) {
+    const [ox, oz] = doorPt(car, side, 0.8), [x, z] = doorPt(car, side); await go(h, [[ox, oz], [x, z]], speed); h.root.visible = false;
+  }
+  const CAMS = {
+    back: [[-0.75, 1.95, 0.75], [0.05, 0.66, -0.95]], basket: [[0.1, 1.5, -0.25], [0.4, 0.62, -0.9]], window: [[0.46, 0.98, -0.82], [4, 0.9, -0.3]],
+    driver: [[-0.45, 1.85, -0.55], [0.42, 1.0, 0.7]], ellie: [[0.6, 2.05, 0.55], [-0.3, 0.9, -0.95]], bag: [[0.62, 1.02, -0.88], [2.6, 0.15, -1.3]], top: [[1.2, 3.2, 2.2], [0, 0.6, -0.5]],
+  };
+  G.CAMS = CAMS;
   async function tripIntro() {
-    const g = game(), pl = g.player, car = C.car, E = C.ellie, Mm = C.mum; let toArlo = false;
-    S().choices = S().choices || {}; delete S().choices.roadTrip;
+    const g = game(), pl = g.player, car = C.car, E = C.ellie, Mm = C.mum, P = C.passenger, D = C.driver, s = S();
+    const choose = (lines) => new Promise((res) => { SEQ.skip = false; SEQ.choosing = true; document.getElementById('skipHint').hidden = true; game().say(lines, () => { SEQ.choosing = false; document.getElementById('skipHint').hidden = false; res(); }); });
+    const face = (h, x, z) => { h.yaw = Math.atan2(x - h.pos.x, z - h.pos.z); };
+    const inCar = (milo = true) => { C.carried = null; hideMilo(!milo); if (milo) { C.ride = { car, off: V3(0.4, 0.61, -0.84), yaw: 0 }; } C.mochiRide = { car, off: V3(0.33, 0.61, -1.05), yaw: 0.4 }; if (G.Mochi) { G.Mochi.f.root.visible = true; G.Mochi.doAct('sleep', 9999); } };
+    const cruise = (on, speed = 12) => { C.cruise = on ? { car, speed, x: 141.8, z0: -150, z1: -70 } : null; if (on) { car.position.set(141.8, 0, -150); car.rotation.y = 0; car.userData.speed = speed; } };
+    let choice = 'jump';
     await cutscene(async () => {
-      // --- morning, the front yard: packing the car
-      car.visible = true; car.position.set(11, 0, 9.2); car.rotation.y = Math.PI; car.userData.speed = 0; C.driver.root.visible = false; C.passenger.root.visible = false; car.userData.trunk.rotation.x = -1.3;
-      [E, Mm].forEach((h) => { h.root.visible = true; h.home = false; }); E.pos.set(5, 0, 7.4); E.yaw = 0; Mm.pos.set(10.2, 0, 6.9); Mm.yaw = Math.PI; Mm.pose = 'carry';
+      // ------------------------------------------------ 1. morning: packing the car
+      car.visible = true; car.position.set(11, 0, 9.2); car.rotation.y = Math.PI; car.userData.speed = 0; D.root.visible = false; P.root.visible = false; car.userData.trunk.rotation.x = -1.3;
+      [E, Mm].forEach((h) => { h.root.visible = true; h.home = false; h.seated = false; }); E.pos.set(5, 0, 7.4); E.yaw = 0; Mm.pos.set(10.2, 0, 6.9); Mm.yaw = Math.PI; Mm.pose = 'carry';
       pl.teleport(4.3, 0, 7.8, 0.4); hideMilo(false); C.mochiOut = true; G.Mochi && (G.Mochi.f.root.visible = true, G.Mochi.place(3.8, 0, 8.3), G.Mochi.state = 'shy');
       UI().chapterCard(7);
       cut([7.5, 1.3, 13.8], [8, 0.8, 8], 3.2);
       await wait(3.2);
       await talk([['ellie', 'Road trip! Road trip! We’re going to see Grandpa Arlo! Four whole hours in the car!', 'happy']]);
-      E.pose = 'cheer'; await wait(1.2); E.pose = 'idle';
+      E.pose = 'jump'; A.play('dook'); await wait(1.2); E.pose = 'idle';
       go(Mm, [[10.6, 7.6]], 1.2); await wait(1); Mm.pose = 'lift'; A.play('thud'); await wait(0.8); Mm.pose = 'idle';
-      await talk([['mum', 'Suitcases: in. Snacks: in. Map: probably in. Ellie, get the ferrets into the carrier, please!', 'happy'], ['ellie', 'Come on, Milo! Mochi! Adventure time!', 'happy']]);
-      go(E, [[6.6, 8.4], [9.4, 8.6]], 1.4); go('milo', [[6.2, 8.8], [9.2, 9.1]], 1.9);
-      await shot([7, 0.6, 11], [8, 0.4, 8.6], 2.6);
-      E.pose = 'carry'; hideMilo(true); C.mochiOut = false; if (G.Mochi) G.Mochi.f.root.visible = false; A.play('door');
-      car.userData.trunk.rotation.x = 0; A.play('thud');
-      await talk([['ellie', 'Everybody in! Carrier on the back seat. Seatbelts! Let’s GO!', 'happy']]);
-      [E, Mm].forEach((h) => (h.root.visible = false)); C.driver.root.visible = true; C.passenger.root.visible = true;
-      A.play('door'); await wait(0.5);
-      // pull out of the driveway and drive off down Maple Street
-      cut([13.5, 1.2, 18.5], [11, 0.8, 11], 0.1);
-      await go(car, [[11, 14], [11.8, 19], [16, 20.8]], 3); await go(car, [[40, 20.8], [86, 20.8]], 9);
-      UI().fade(true); await wait(0.8);
-      // --- on the highway: a little driving montage
-      car.position.set(143, 0, -158); car.rotation.y = 0; C.peek.visible = true; UI().fade(false);
-      track(car, [7, 5.5, -9], [0, 0.6, 5]);
-      const drive = go(car, [[143, -40]], 8.4);
-      await wait(1.2);
-      await talk([['ellie', 'Are we there yet?', 'happy'], ['mum', 'No.', 'neutral'], ['ellie', '...Are we there yet?', 'happy'], ['mum', 'Ellie.', 'think'], ['ellie', 'Milo wants to know.', 'smug']]);
-      // Milo pokes his head out of the back window
-      track(car, [-2.3, 1.15, 0.4], [-0.9, 1.08, -0.9]); C.peekT = 0;
-      await wait(0.4);
-      await talk([['milo', 'Wind in my whiskers! Fields! A windmill! A cow that is VERY large up close!', 'happy'], ['milo', 'Everything smells like hay and exhaust and adventure.', 'happy']]);
-      // a low shot at the side of the road as the car whooshes past a sign
-      const cz = car.position.z; cut([140.6, 0.4, cz + 30], [143.2, 0.7, cz + 18], 0.1); SEQ.track = null;
+      await talk([['mum', 'Suitcases: in. Snacks: in. Map: probably in. Ellie, bring the ferrets, please!', 'happy'], ['ellie', 'Come on, Milo! Mochi! Adventure time!', 'happy']]);
+      await go(E, [[4.9, 7.2]], 1.2); face(E, pl.pos.x, pl.pos.z);
+      E.pose = 'reach'; await wait(0.6); pickUp(E); E.pose = 'carry'; await wait(0.4);
+      shot([7, 1.2, 11.5], [8, 0.8, 8.4]);
+      C.mochiOut = false; if (G.Mochi) G.Mochi.f.root.visible = false;
+      go(Mm, [[11.2, 7.2]], 1.1);
+      await go(E, [[6.6, 8.2], [8.4, 8.9]], 1.3);
+      face(Mm, car.position.x, car.position.z); Mm.pose = 'lift'; await wait(0.5); g.tween(0.6, (k) => (car.userData.trunk.rotation.x = U.lerp(-1.3, 0, U.smooth(k)))); await wait(0.6); A.play('thud'); Mm.pose = 'idle';
+      await talk([['ellie', 'Everybody in! Seatbelts! Let’s GO!', 'happy']]);
+      openDoor(car, 0, true); openDoor(car, 2, true);
+      const eIn = enterCar(car, E, -1, 1.3), mIn = enterCar(car, Mm, 1, 1.3);
+      await eIn; P.root.visible = true; P.seated = true; P.pose = 'sit'; inCar(true); await mIn; D.root.visible = true; D.pose = 'drive';
+      openDoor(car, 0, false); openDoor(car, 2, false); await wait(0.6); A.play('car', 0.6);
+      // ------------------------------------------------ 2. backing out, down Maple Street
+      cut([15.5, 1.6, 17.5], [11, 0.8, 12], 0.1);
+      await go(car, [[11, 16.8], [8.8, 20.3]], 2.2, { rev: true }); car.userData.speed = 0; await wait(0.4);
+      track(car, [-6.5, 2.2, 3.2], [2, 0.7, 0]);
+      const street = go(car, [[16, 20.8], [60, 20.8]], 9);
+      await wait(1.2); trackL(car, CAMS.back[0], CAMS.back[1]);
+      P.pose = 'wave'; P.lookY = -0.9; await talk([['ellie', 'Bye house! Bye Tilly! Bye bird bath! See you in a WEEK!', 'happy']]); P.pose = 'sit'; P.lookY = 0;
+      await street; UI().fade(true); await wait(0.8);
+      // ------------------------------------------------ 3. the highway: life in the back seat
+      cruise(true, 12); s.time = 11;
+      track(car, [-3.2, 2.1, -8], [0, 0.9, 4]); UI().fade(false);
+      { const t = C.traffic.find((c) => c.userData.lane > 0); if (t) { t.position.set(144.8, 0, -170); t.userData.speed = 19; } }
       await wait(3.2);
-      track(car, [5.5, 2.2, 7], [0, 0.7, -1]);
-      await talk([['ellie', 'Look, Milo! "Saltwhistle Bay, 38 miles." That’s where Grandpa lives! By the SEA!', 'happy'], ['mum', 'And "Gus’s Gas, next exit." Bathroom break first.', 'happy']]);
-      await drive; track(null); C.peek.visible = false;
-      cut([160, 3, -30], [158, 0.5, -24], 0.1);
-      await talk([['mum', 'Gas station. Everybody out for five minutes. Stretch your legs!', 'happy']]);
-      car.position.set(157, 0, -34); car.rotation.y = 0; W_gate(true);
-      await go(car, [[158.5, -24], [165, -12], [171.5, -4.8]], 5);
-      car.userData.speed = 0; openDoor(car, 0, true); openDoor(car, 1, true);
-      C.driver.root.visible = false; C.passenger.root.visible = false; [E, Mm].forEach((h) => { h.root.visible = true; h.pose = 'idle'; });
-      Mm.pos.set(172.5, 0, -4.2); Mm.yaw = Math.PI / 2; E.pos.set(170.6, 0, -4.4); E.yaw = -Math.PI / 2;
-      // --- the choice: hop out, or stay curled up for Grandpa Arlo's
-      cut([168.4, 1.3, -2.2], [170.9, 0.9, -4.8], 0.1);
-      await choose([['ellie', 'Milo! Mochi! Do you want to come out and stretch your legs?', 'happy'],
-        ['milo', '*The door is open. Out there: grass, strange smells, something crinkly by the bins. In here: a warm blanket, a snoring Mochi, and Grandpa Arlo at the end of the road.*', 'think'],
-        { choice: [{ t: 'Jump off the car and explore', set: { roadTrip: 'jump' } }, { t: 'Stay in the car: on to Grandpa Arlo’s!', set: { roadTrip: 'arlo' } }] }]);
-      if (S().choices.roadTrip === 'arlo') {
-        toArlo = true;
-        await talk([['milo', '*Nope. Blanket. Warm. Mochi’s tail is on my nose and I don’t even mind. Wake me at the sea.*', 'happy'], ['ellie', 'Sleepy boys. Okay, you guard the car. Back in five!', 'happy']]);
-        go(Mm, [[178, -4.6], [189, -3]], 1.4); await go(E, [[178, -5], [189, -3.4]], 1.6);
-        [E, Mm].forEach((h) => (h.root.visible = false)); A.play('door');
-        cut([163, 5, 6], [171.5, 0.8, -4.8], 3);
-        [E, Mm].forEach((h) => { h.root.visible = true; }); E.pos.set(189, 0, -3.4); Mm.pos.set(189, 0, -3); E.pose = 'cheer';
-        go(Mm, [[172.5, -4.2]], 1.4); await go(E, [[170.6, -4.4]], 1.6); E.pose = 'idle';
-        await talk([['mum', 'Tank’s full, snacks restocked. Next stop: the seaside!', 'happy'], ['ellie', 'Milo’s still asleep. He’s SO going to love the sea.', 'happy']]);
-        [E, Mm].forEach((h) => (h.root.visible = false)); C.driver.root.visible = true; C.passenger.root.visible = true; openDoor(car, 0, false); openDoor(car, 1, false);
-        await wait(0.6); track(car, [-7, 3, -6], [0, 0.8, 4]);
-        await go(car, [[166, 6], [160, 24.5], [158.5, 40]], 6);
-        UI().fade(true); await wait(0.9); track(null);
-        return;
+      trackL(car, CAMS.top[0], CAMS.top[1]); await wait(2.4);
+      trackL(car, CAMS.back[0], CAMS.back[1]);
+      P.pose = 'sing'; await talk([['ellie', '🎵 Ninety-nine ferrets asleep on the seat, ninety-nine ferrets... 🎵', 'happy'], ['mum', 'Ellie. Sweetheart. It’s been ninety-nine for twenty minutes.', 'think']]);
+      P.pose = 'laugh'; await wait(1); P.pose = 'sit';
+      trackL(car, CAMS.basket[0], CAMS.basket[1]);
+      pl.act('lookup', 3.2, { lockMove: true }); C.ride.yaw = Math.PI / 2 - 0.3;
+      await talk([['milo', 'The world is going by SO fast. Trees, fences, a cow... another cow... is this how birds feel all the time?', 'surprised']]);
+      trackL(car, CAMS.window[0], CAMS.window[1], false); await wait(2.4);
+      pl.act('sneeze', 0.9); A.play('sneeze', 0.6); C.ride.yaw = 0;
+      trackL(car, CAMS.back[0], CAMS.back[1]);
+      P.pose = 'give'; P.lookY = 0.8; await wait(0.6);
+      await talk([['ellie', 'Bless you, Milo! Here. Road trip treat. Don’t tell Mum.', 'happy'], ['mum', 'I can see you in the mirror.', 'smug']]);
+      pl.act('eat', 1.4); A.play('eat'); P.pose = 'sit'; P.lookY = 0;
+      // the trucker honk
+      { const t = C.traffic.find((c) => c.userData.lane > 0); if (t) { t.position.set(144.8, 0, car.position.z - 16); t.userData.speed = 16.5; } }
+      track(car, [-3.2, 3.4, 9.5], [0.8, 0.8, -3]); await wait(1.6);
+      trackL(car, CAMS.ellie[0], CAMS.ellie[1]); P.pose = 'wave2'; P.lookY = 0.9; setTimeout(() => A.play('honk', 1), 500); await wait(0.6);
+      await talk([['ellie', '*pump pump* HONK! HONK! ...HE HONKED! Mum! The truck HONKED!', 'happy']]);
+      P.pose = 'sit'; P.lookY = 0;
+      trackL(car, CAMS.driver[0], CAMS.driver[1]); D.lookY = -0.5;
+      await talk([['ellie', 'Are we there yet?', 'happy'], ['mum', 'No.', 'neutral'], ['ellie', '...Are we there yet?', 'happy'], ['mum', 'Ellie.', 'think'], ['ellie', 'Milo wants to know.', 'smug'], ['mum', 'Next exit, there’s a gas station. Five minute stop. Then Grandpa’s.', 'happy']]);
+      D.lookY = 0; car.userData.steer = 0.2;
+      cruise(false);
+      // ------------------------------------------------ 4. the gas station
+      UI().fade(true); await wait(0.7);
+      car.position.set(157.3, 0, -44); car.rotation.y = 0; car.userData.speed = 5; W_gate(true); s.time = 12.5;
+      cut([163, 2.6, -26], [158, 0.6, -34], 0.1); UI().fade(false);
+      await go(car, [[158.2, -26], [165.5, -14.5], [170.9, -9.8], [171.3, -4.6]], 5.5);
+      car.userData.speed = 0; A.play('thud', 0.3); await wait(0.5);
+      cut([166.5, 1.6, -9], [172, 0.9, -4], 0.1);
+      openDoor(car, 0, true); openDoor(car, 2, true); await wait(0.3);
+      D.root.visible = false; P.root.visible = false; E.seated = Mm.seated = false; [E, Mm].forEach((h) => (h.pose = 'idle'));
+      C.ride = null; hideMilo(false); pickUp(E);
+      exitCar(car, Mm, 1, [174.1, -4.4], 1.2).then(() => { face(Mm, 175, -4.4); Mm.pose = 'cook'; A.play('pump', 0.8); });
+      await exitCar(car, E, -1, null, 1.3); E.pose = 'carry';
+      shot([162, 1.5, -14.5], [166, 0.6, -19]);
+      await go(E, [[166.5, -12], [165.3, -20.2]], 1.4);
+      E.yaw = Math.PI; E.pose = 'reach'; await wait(0.7); putDown(E);
+      await wait(0.3); E.pose = 'pet'; await wait(1.1); E.pose = 'idle';
+      await talk([['ellie', 'There you go! Sniff sniff! Stay right here, okay? I’m getting SNACKS.', 'happy']]);
+      const toStore = go(E, [[172, -12], [184, -3], [189.4, -1.2]], 1.9).then((r) => { if (r !== 'cancel') { E.root.visible = false; A.play('door', 0.5); } });
+      track('milo', [2.6, 1.3, 2.4], [0, 0.2, 0]);
+      go('milo', [[164, -18.5], [162.6, -19.8]], 1.2); await wait(1.4); pl.act('sniff', 2); A.play('sniff'); await wait(2);
+      await talk([['milo', 'Gasoline. Old chewing gum. Hot dogs spinning for about three days. This place smells INCREDIBLE.', 'happy']]);
+      go('milo', [[163.4, -21.5]], 1); pl.act('sniff', 1.5, { lockMove: false }); await Promise.race([toStore, wait(2.5)]);
+      // Ellie comes back with snacks; everyone back in
+      E.root.visible = true; E.pos.set(189.2, 0, -1.2); E.yaw = -Math.PI / 2; E.pose = 'carry'; A.play('door', 0.5); Mm.pose = 'idle'; A.play('thud', 0.4);
+      cut([185.5, 1.5, -4.5], [189, 1, -1.2]); await go(E, [[186.5, -2.6]], 1.6);
+      E.pos.set(169.5, 0, -14.5); E.yaw = Math.PI * 0.85;
+      shot([164, 1.4, -14], [165, 0.5, -19.5]);
+      await go(E, [[pl.pos.x + 0.9, pl.pos.z + 0.6]], 1.8);
+      await talk([['ellie', 'Cheese puffs for me, gummy worms for Mum, and NOTHING for ferrets because Mum said so. Back in the car, Milo!', 'happy']]);
+      face(E, pl.pos.x, pl.pos.z); E.pose = 'reach'; await wait(0.6); pickUp(E); E.pose = 'carry';
+      go(Mm, [[doorPt(car, 1, 0.8)[0], doorPt(car, 1, 0.8)[1]]], 1.3);
+      await go(E, [[166.5, -12], [doorPt(car, -1, 0.8)[0], doorPt(car, -1, 0.8)[1]]], 1.5);
+      const e2 = enterCar(car, E, -1, 1.2), m2 = enterCar(car, Mm, 1, 1.2);
+      await e2; P.root.visible = true; P.seated = true; P.pose = 'sit'; inCar(true); await m2; D.root.visible = true;
+      openDoor(car, 0, false); openDoor(car, 2, false); await wait(0.5); A.play('car', 0.6);
+      // ------------------------------------------------ 5. pulling out... and a crinkle
+      const bag = C.bag || new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.06, 0.2), mat(0xf2c14e, 0.4, { metal: 0.3 })); C.bag = bag; bag.visible = true; bag.scale.set(1, 1, 1); bag.position.set(163.2, 0.03, -15); bag.rotation.y = 0.5; if (!bag.parent) g.scene.add(bag);
+      trackL(car, CAMS.basket[0], CAMS.basket[1]);
+      const roll = go(car, [[170.6, -10.5], [166, -14.5]], 1.4);
+      await wait(1.2); A.play('rustle', 0.8); pl.act('lookup', 2.5, { lockMove: true }); C.ride.yaw = Math.PI / 2;
+      trackL(car, CAMS.bag[0], CAMS.bag[1], false);
+      g.tween(2.2, (k) => { bag.position.x = 163.2 + Math.sin(k * 6) * 0.3; bag.rotation.y = 0.5 + k * 4; bag.position.y = 0.03 + Math.abs(Math.sin(k * 9)) * 0.12; });
+      await talk([['milo', 'Crinkle... crinkle... Is that a CHIP BAG? Blowing across the lot? Unsupervised?!', 'surprised'], ['milo', 'The window is open. Just a crack. A very ferret-sized crack...', 'think']]);
+      await roll; car.userData.speed = 0.6;
+      trackL(car, CAMS.basket[0], CAMS.basket[1]);
+      await choose([{ choice: [
+        { t: 'Squeeze out the window after the chip bag!', then: [{ do: () => { choice = 'jump'; } }] },
+        { t: 'Curl up in the basket and nap all the way to Grandpa Arlo’s farm', then: [{ do: () => { choice = 'stay'; } }] },
+        ...(G.Arlo ? [{ t: 'Stay awake: Grandpa Arlo is waiting at Saltwhistle Bay, by the sea!', then: [{ do: () => { choice = 'sea'; } }] }] : []),
+      ] }]);
+      s.flags.tripChoice = choice;
+      if (choice === 'stay' || choice === 'sea') {
+        // ------------------------------------------ 6b. staying: on to Grandpa's
+        pl.act('sleep', 999, { lockMove: true }); C.ride.yaw = 0.3;
+        await talk(choice === 'sea' ? [['milo', '...Nah. Chip bags come and go. The SEA only happens once a year. Wake me at the sea. No, wait, I’m staying awake. For the sea.', 'happy'], ['mochi', '*snore* ...mm... Milo? ...Is it the sea yet?', 'happy']] : [['milo', '...Nah. Chip bags come and go. Grandpa Arlo only happens once a year.', 'happy'], ['mochi', '*snore* ...mm... Milo? ...Are we there yet?', 'happy']]);
+        cut([162, 2.2, -18], [166, 0.6, -12], 0.1);
+        await go(car, [[158.6, -26], [157.6, -40]], 5);
+        UI().fade(true); await wait(0.8);
+        cruise(true, 13); s.time = 17.4; UI().fade(false);
+        track(car, [-2.2, 4.2, 9], [0, 0.8, 0]);
+        await wait(2.6);
+        trackL(car, CAMS.back[0], CAMS.back[1]); P.pose = 'sleepsit'; P.lookY = 0.6;
+        await talk([['mum', '*softly* ...and they’re all asleep. Every last one of them. Finally.', 'happy']]);
+        trackL(car, CAMS.driver[0], CAMS.driver[1]); await wait(2.2);
+        track(car, [-7, 3.5, -10], [0, 0.5, 12]); await wait(2.6);
+        cruise(false); UI().fade(true); await wait(1);
+      } else {
+        // ------------------------------------------ 6a. the leap
+        C.ride = null; pl.action = null;
+        car.updateMatrixWorld(true);
+        const a0 = car.localToWorld(V3(0.82, 1.0, -0.84)), a1 = V3(bag.position.x + 0.9, 0, bag.position.z + 0.5);
+        cut([160.5, 1.3, -13], [164.5, 0.6, -15], 0.1);
+        A.play('squeak');
+        if (!SEQ.skip) { await new Promise((res) => g.tween(0.75, (k) => { const x = U.lerp(a0.x, a1.x, k), z = U.lerp(a0.z, a1.z, k), y = U.lerp(a0.y, 0, k) + Math.sin(k * Math.PI) * 0.7; pl.teleport(x, y, z, Math.atan2(a1.x - a0.x, a1.z - a0.z)); if (k >= 1) res(); })); }
+        pl.teleport(a1.x, 0, a1.z, -1.2); A.play('land'); pl.act('shake', 0.8);
+        const leave = go(car, [[158.6, -26], [157.6, -40]], 6);
+        if (G.Mochi) G.Mochi.doAct('sniff', 2);
+        await talk([['mochi', '...Milo? MILO?! Where are you going?! ...Mum! MUM! Ellie! ...Nobody can hear me over the cheese puffs!', 'surprised']]);
+        await go('milo', [[bag.position.x + 0.25, bag.position.z + 0.1]], 2.6);
+        pl.act('dig', 1.2); A.play('rustle'); bag.scale.set(1.3, 2.2, 1.3); await wait(1.2); bag.scale.set(1, 1, 1);
+        await talk([['milo', '*crunch* ...Crumbs. Just crumbs. Barbecue crumbs, but still. Worth it.', 'happy'], ['milo', '...Wait. Where did the car go?', 'surprised']]);
+        track('milo', [1.6, 0.9, 3.4], [0, 0.3, -2]);
+        await go('milo', [[162, -22], [158.8, -24.2]], 4.4);
+        track(null);
+        await leave; car.visible = false; C.mochiRide = null;
+        cut([159, 0.5, -21.5], [158.6, 0.2, -24.2], 0.1);
+        pl.act('lookup', 2.5); A.setMood('mystery');
+        for (let i = 0; i < 12; i++) g.particles.emit({ x: 157.5 + Math.random(), y: 0.3, z: -38 + Math.random() * 2, vx: 0, vy: 0.4, vz: 0, life: 2, size: 0.4, col: 0x9a9a9a, alpha: 0.4 });
+        await wait(1.5);
+        await talk([['milo', 'They... left without me.', 'sad'], ['milo', 'Okay. Okay okay okay. Don’t panic. Home is... west. Past the highway. I’m a ferret. Ferrets are EXCELLENT at finding things.', 'think']]);
+        // enter Gus
+        const Gs = C.gus; Gs.root.visible = true; Gs.pos.set(189.3, 0, -1); Gs.yaw = -Math.PI / 2; Gs.pose = 'idle';
+        cut([185, 1.7, -3.5], [189.3, 1.2, -1], 0.1); A.play('door');
+        await go(Gs, [[186.5, -3]], 1.4);
+        Gs.pose = 'point';
+        await talk([['gus', 'Well, well! A weasel! In my gas station! Hey there, little fella. You lost?', 'surprised'], ['gus', 'Better close the gate before you run out on that highway. Then come to ol’ Gus...', 'happy']]);
+        W_gate(false);
+        await talk([['milo', 'The gate’s shut! There’s a soft patch of dirt by the back fence... but first I need to lose him.', 'think']]);
+        Gs.pose = 'idle';
       }
-      // --- stretching legs on the grass
-      go(Mm, [[174.3, -4.6]], 1.2); Mm.pose = 'cook';
-      go(E, [[166, -12], [165, -20.6]], 1.6);
-      await shot([162, 1.4, -15], [166, 0.6, -21], 2.2);
-      E.pose = 'reach'; await wait(0.8); hideMilo(false); pl.teleport(165.4, 0, -21.4, 0); C.mochiOut = true; if (G.Mochi) { G.Mochi.place(164.6, 0, -21.3); G.Mochi.state = 'shy'; }
-      A.play('dook'); E.pose = 'idle';
-      await talk([['ellie', 'There you go! Sniff sniff! Five minutes, okay? Don’t go anywhere.', 'happy']]);
-      go(E, [[168, -14], [171.2, -6]], 1.5);
-      // Milo gets distracted by a crinkly chip bag
-      A.play('rustle'); await wait(0.6);
-      cut([184, 0.8, -17], [187.6, 0.3, -14], 0.1);
-      const bag = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.06, 0.2), mat(0xf2c14e, 0.4, { metal: 0.3 })); bag.position.set(187.8, 0.03, -14.4); bag.rotation.y = 0.5; g.scene.add(bag); C.bag = bag;
-      await talk([['milo', 'Crinkle crinkle. Is that... a CHIP BAG? Nobody else is going to investigate that. It’s my duty.', 'surprised']]);
-      track('milo', [2.2, 1.1, 2.2], [0, 0.2, 0]);
-      await go('milo', [[172, -19], [182, -17], [187.6, -14.5]], 3.4);
-      track(null); pl.act('dig', 1.2); A.play('rustle'); hideMilo(true); bag.scale.set(1.3, 2.2, 1.3);
-      await wait(1);
-      // --- the family leaves without him
-      cut([168, 1.5, -10], [172, 1, -4.8], 0.1);
-      await talk([['mum', 'Okay! Tank’s full! Everybody back in!', 'happy'], ['ellie', 'Mochi’s in... and Milo is... this fuzzy lump? Yep! That’s Milo!', 'happy'], ['milo', '(It was her scarf.)', 'sad']]);
-      E.pose = 'carry'; await wait(0.6); [E, Mm].forEach((h) => (h.root.visible = false)); C.mochiOut = false; if (G.Mochi) G.Mochi.f.root.visible = false;
-      C.driver.root.visible = true; C.passenger.root.visible = true; openDoor(car, 0, false); openDoor(car, 1, false);
-      await wait(0.6); A.play('thud', 0.4);
-      const leave = go(car, [[166, -14], [158.5, -26], [157.5, -40]], 6);
-      await wait(1.2);
-      hideMilo(false); bag.scale.set(1, 1, 1); pl.teleport(187, 0, -14.8, -2.4); A.play('squeak');
-      cut([185, 0.6, -13], [187, 0.3, -14.8], 0.1);
-      await talk([['milo', '...Wait. Was that the car?', 'surprised']]);
-      track('milo', [1.6, 0.9, 3.4], [0, 0.3, -2]);
-      await go('milo', [[175, -18], [162, -22], [158.8, -24.2]], 4.4);
-      track(null);
-      await leave; car.visible = false;
-      cut([159, 0.5, -21.5], [158.6, 0.2, -24.2], 0.1);
-      pl.act('lookup', 2.5); A.setMood('mystery');
-      for (let i = 0; i < 12; i++) g.particles.emit({ x: 157.5 + Math.random(), y: 0.3, z: -38 + Math.random() * 2, vx: 0, vy: 0.4, vz: 0, life: 2, size: 0.4, col: 0x9a9a9a, alpha: 0.4 });
-      await wait(1.5);
-      await talk([['milo', 'They... left without me.', 'sad'], ['milo', 'Okay. Okay okay okay. Don’t panic. Home is... west. Past the highway. I’m a ferret. Ferrets are EXCELLENT at finding things.', 'think'], ['milo', 'Even if the thing is home, and home is forty miles away.', 'sad']]);
-      // --- enter Gus
-      const Gs = C.gus; Gs.root.visible = true; Gs.pos.set(189.3, 0, -1); Gs.yaw = -Math.PI / 2; Gs.pose = 'idle';
-      cut([185, 1.7, -3.5], [189.3, 1.2, -1], 0.1); A.play('door');
-      await go(Gs, [[186.5, -3]], 1.4);
-      Gs.pose = 'point';
-      await talk([['gus', 'Well, well! A weasel! In my gas station! Hey there, little fella. You lost?', 'surprised'], ['gus', 'Better close the gate before you run out on that highway. Then come to ol’ Gus...', 'happy']]);
-      W_gate(false);
-      await talk([['milo', 'The gate’s shut! There’s a soft patch of dirt by the back fence... but first I need to lose him.', 'think']]);
-      Gs.pose = 'idle';
     });
-    if (toArlo && G.Arlo) { G.Arlo.start(); return; }
+    C.cruise = null; C.ride = null; C.mochiRide = null; if (G.Mochi) G.Mochi.doAct(null, 0);
+    [P, D].forEach((h) => (h.lookY = 0)); P.pose = 'sit';
+    if (choice === 'stay') { car.visible = false; if (G.ArloFarm) G.ArloFarm.begin(); return; }
+    if (choice === 'sea') { car.visible = false; if (G.Arlo) { G.Arlo.start(); setTimeout(() => UI().fade(false), 400); } return; }
     S().step = 'r_escape'; S().weather = 'cloudy'; A.setMood('trail'); UI().updateObjective(true); g.autosave();
     startChase(C.gus, 'gus');
   }
@@ -726,13 +846,15 @@
       await go(car, [[16, 20.8], [11.8, 19], [11, 14.5]], 7);
       track(null); car.userData.speed = 0;
       cut([7.8, 1.2, 16.8], [10, 0.8, 12], 0.1);
-      openDoor(car, 1, true); openDoor(car, 0, true); C.driver.root.visible = false; C.passenger.root.visible = false;
-      E.root.visible = true; Mm.root.visible = true; E.pos.set(10.1, 0, 14.4); Mm.pos.set(11.9, 0, 14.6); E.home = Mm.home = false;
+      await wait(0.3); openDoor(car, 2, true); openDoor(car, 0, true); await wait(0.3); C.driver.root.visible = false; C.passenger.root.visible = false;
+      E.home = Mm.home = false; E.pose = 'idle'; Mm.pose = 'idle';
+      exitCar(car, Mm, 1, null, 1.1); await exitCar(car, E, -1, null, 1.2);
+      E.yaw = Math.atan2(pl.pos.x - E.pos.x, pl.pos.z - E.pos.z);
       await talk([['ellie', 'MILO?!', 'surprised']]);
       pl.act(null, 0); pl.action = null; E.pose = 'idle';
-      go('milo', [[6.8, 12.8]], 3.6);
-      await go(E, [[7.4, 13.2]], 3.4);
-      E.pose = 'reach'; await wait(0.7); C.carried = E; E.pose = 'hug'; A.play('dook'); setTimeout(() => A.play('dook'), 500);
+      go('milo', [[6.9, 12.9]], 3.6);
+      await go(E, [[7.5, 13.3]], 3.2);
+      E.yaw = Math.atan2(pl.pos.x - E.pos.x, pl.pos.z - E.pos.z); E.pose = 'reach'; await wait(0.6); pickUp(E); E.pose = 'hug'; A.play('dook'); setTimeout(() => A.play('dook'), 500);
       cut([6, 1.4, 14.8], [7.4, 1, 13.2], 0.1);
       await talk([
         ['ellie', 'We noticed at the NEXT gas station! Mum turned around on the highway and we drove all the way back and you were GONE and I cried and...', 'cry'],
@@ -761,7 +883,7 @@
   /* ================================================================ HOOKS */
   const oInit = EXT.init, oUpd = EXT.update, oApply = EXT.applyState;
   EXT.init = function (g) {
-    oInit(g); C.init(g);
+    oInit(g); C.init(g); pinMilo();
     const btn = document.getElementById('btnTrip'); if (btn) btn.onclick = () => { A.init(); A.play('ui'); startTrip(true); };
     document.getElementById('skipHint').onclick = skipCutscene;
     const oMake = G.makeItem; G.makeItem = (id) => { if (id === 'keychain') { const gr = new THREE.Group(); const r = mesh(new THREE.TorusGeometry(0.02, 0.004, 6, 16), Mt.get('chrome'), 0, 0.02, 0); gr.add(r); const tag = mesh(new THREE.BoxGeometry(0.05, 0.07, 0.008), mat(0x3f6fa0, 0.4), 0, -0.035, 0); gr.add(tag); gr.position.y = 0.05; const w = new THREE.Group(); w.add(gr); return w; } return oMake(id); };
@@ -800,14 +922,17 @@
     if (st === 'play' || st === 'menu') { homeTick('mum', dt); homeTick('ellie', dt); }
     for (const id of ['ellie', 'mum']) { const h = C[id]; if (h.chase) chaseTick(h, dt); }
     if (C.gus.chase) chaseTick(C.gus, dt);
+    for (const h of C.extraHumans) if (h.chase) chaseTick(h, dt);
     else if (s.chapter === 7 && C.gus.root.visible && !SEQ.running) { if (C.gus.path.length) followPath(C.gus, dt, 1.4); else { C.gus.pose = C.gusSearch > 0 ? 'think' : 'idle'; C.gus.yaw = U.dampAngle(C.gus.yaw, -Math.PI / 2, 2, dt); } C.gusSearch = (C.gusSearch || 0) - dt; const d = Math.hypot(pl.pos.x - C.gus.pos.x, pl.pos.z - C.gus.pos.z); if (st === 'play' && s.step === 'r_escape' && C.gusSearch <= 0 && d < 7 && !sheltered() && pl.pos.z < 24.8) startChase(C.gus, 'gus'); }
     for (const h of [C.ellie, C.mum, C.gus, C.arlo, C.driver, C.passenger]) if (h.root.visible || h === C.driver) h.update(dt, { lookY: h.lookY, talking: UI().dialogueOpen && G.UI.history.length && G.UI.history[G.UI.history.length - 1].who === h.id });
     // carried Milo sits in someone's arms
-    if (C.carried) { const hp = C.carried.handPos(V3()); pl.f.root.position.set(hp.x, hp.y - 0.05, hp.z); pl.f.root.rotation.y = C.carried.yaw + Math.PI / 2; pl.pos.copy(pl.f.root.position); pl.vy = 0; }
+    if (C.mochiRide && G.Mochi) { const R = C.mochiRide; R.car.updateMatrixWorld(true); const wp = R.car.localToWorld(R.off.clone()); const mf = G.Mochi.f.root; mf.position.copy(wp); mf.rotation.y = R.car.rotation.y + (R.yaw || 0); if (G.Mochi.pos) G.Mochi.pos.copy(wp); }
+    // Milo's position while carried / riding is pinned inside Player.update (see pinMilo)
     // cars
+    if (C.cruise) { const c = C.cruise, car = c.car; car.position.x = U.damp(car.position.x, c.x, 1.5, dt); car.position.z += c.speed * dt; car.userData.speed = c.speed; car.rotation.y = U.dampAngle(car.rotation.y, 0, 3, dt); car.userData.steer = Math.sin(g.t * 0.7) * 0.03; if (car.position.z > c.z1) car.position.z = c.z0; }
+    for (const cw of C.cows || []) { const hd = cw.userData.head; hd.rotation.x = 0.6 + Math.sin(g.t * 0.8 + cw.userData.ph) * 0.35; cw.userData.tail.rotation.z = Math.sin(g.t * 2.3 + cw.userData.ph) * 0.4; }
     carTick(C.car, dt);
-    if (G.World.obj.windmill) G.World.obj.windmill.rotation.x += dt * 0.6; if (C.cows) C.cows.forEach((h, i) => (h.rotation.x = 0.35 + Math.sin(g.t * 0.8 + i * 2) * 0.25));
-    if (C.peek.visible) { C.peekT = (C.peekT || 0) + dt; C.peekF.update(dt, { speed: 0, action: C.peekT > 1.2 && C.peekT < 4 ? 'lookup' : null, look: Math.sin(g.t * 1.7) * 0.6 }); if (C.peekF.ears) C.peekF.ears.forEach((e, i) => (e.rotation.z = Math.sin(g.t * 30 + i) * 0.25)); }
+    
     const trafficOn = s.chapter === 7 || (pl.pos.x > 90 && pl.pos.y > -5); C.traffic.forEach((car) => { car.visible = trafficOn; if (!trafficOn) return; car.position.z -= car.userData.lane * car.userData.speed * dt; if (C.car.visible && car.userData.lane < 0 && Math.abs(car.position.x - C.car.position.x) < 2 && car.position.z < C.car.position.z && car.position.z > C.car.position.z - 9) car.position.z = C.car.position.z - 9; if (car.position.z > 160) car.position.z = -160; if (car.position.z < -160) car.position.z = 160; carTick(car, dt); });
     if (trafficOn && Math.hypot(pl.pos.x - 146, 0) < 30 && Math.random() < dt * 0.8) A.play('car');
     // crow
@@ -832,8 +957,13 @@
   A.play = function (name, v = 1) {
     if (!A.ready) return;
     if (name === 'car') { A.noise({ f: 180, f2: 90, q: 0.6, dur: 1.4, vol: 0.12 * v, brown: true, ft: 'lowpass', a: 0.5 }); return; }
+    if (name === 'honk') { for (const [f, d] of [[392, 0], [330, 0.02]]) { A.tone({ f, type: 'square', dur: 0.32, vol: 0.05 * v, lp: 1400, delay: d }); A.tone({ f, type: 'square', dur: 0.5, vol: 0.05 * v, lp: 1400, delay: 0.42 + d }); } return; }
+    if (name === 'sneeze') { A.noise({ f: 2600, q: 1.2, dur: 0.12, vol: 0.06 * v, delay: 0.25 }); A.tone({ f: 900, f2: 1400, type: 'sine', dur: 0.2, vol: 0.03 * v }); return; }
+    if (name === 'pump') { A.noise({ f: 700, q: 3, dur: 1.6, vol: 0.05 * v, ft: 'bandpass', a: 0.2 }); return; }
+    if (name === 'flutter') { for (let i = 0; i < 6; i++) A.noise({ f: 1200 + i * 60, q: 1, dur: 0.06, vol: 0.05 * v, delay: i * 0.07 }); return; }
     if (name === 'caw') { for (let i = 0; i < 2; i++) A.tone({ f: 620, f2: 420, type: 'sawtooth', dur: 0.22, vol: 0.05 * v, lp: 1600, delay: i * 0.3 }); return; }
     return basePlay(name, v);
   };
   document.addEventListener('keydown', (e) => { if (SEQ.running && e.code === 'Escape') skipCutscene(); });
+  G.Kit = { cutscene, wait, talk, go, shot, cut, track, trackL, place, makeCar, openDoor, doorPt, enterCar, exitCar, pickUp, putDown, startChase, endChase, moveH, followPath, sheltered, hideMilo, carTick, mat, mesh, CAMS, W_gate: (o) => W_gate(o), cutaway: (o) => cutaway(o), V3 };
 })();

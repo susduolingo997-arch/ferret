@@ -87,12 +87,15 @@
 
   /* ---------------------------------------------------------- actions */
   const CH = () => G.CHAPTERS || {};
-  const TELE = [['Milo’s Basket', [-3, 0, -3.9], 3.14], ['Backyard', [3, 0, -15], 3.14], ['Maple Street', [5, 0, 18], 0], ['Corner Shop', [58, 0, 11], 3.14], ['Willow Park', [2, 0, 32], 0], ['Forest Edge', [-54, 0, 49.5], -1.57], ['The Clearing', [-99, 0, 12], 3.14], ['Arlo’s Workshop', [-107, 0, -13.2], 3.14], ['Gas Station', [168, 0, 0], 1.57]];
+  const TELE = [['Milo’s Basket', [-3, 0, -3.9], 3.14], ['Backyard', [3, 0, -15], 3.14], ['Maple Street', [5, 0, 18], 0], ['Corner Shop', [58, 0, 11], 3.14], ['Willow Park', [2, 0, 32], 0], ['Forest Edge', [-54, 0, 49.5], -1.57], ['The Clearing', [-99, 0, 12], 3.14], ['Arlo’s Workshop', [-107, 0, -13.2], 3.14], ['Gas Station', [168, 0, 0], 1.57], ['Pinewood Farm', [182, 0, 93], 0], ['Saltwhistle Bay', [257, 0, -3.4], 1.57, 'bay'], ['The Far Wood', [-72, 'g', -140], 0], ['Wren Cottage', [-1, 0.1, -101.6], 3.14], ['Rose’s Garden', [-6, 'g', -136], 3.14], ['Mountain Trail', [-20, 'g', -228], 3.14], ['Rose’s Lookout', [-40, 'g', -292.6], 3.14], ['The Deepways', [24, 'ug', -309.4], 0], ['Storm Valley', [54, 'g', -294], 1.57], ['Thistlecombe', [182, 'g', -238], 1.57]];
+  const tpTo = (pos, yaw, rid) => { const W = G.World, R = G.Regions; if (rid && R && R.byId[rid]) R.build(R.byId[rid]); const [x, y, z] = pos; if (R) R.ensureAt(x, y === 'ug' ? W.UG : 5, z); const yy = y === 'ug' ? W.UG : y === 'g' ? W.groundY(x, z) : y; game().travel([x, yy, z], yaw); };
   function toast(t) { UI().toast('<b>Admin</b>', null, t); }
   function run(fn, msg) { try { fn(); } catch (e) { console.warn(e); } if (msg) toast(msg); game().autosave && game().autosave(); panel(msg); }
   function gotoChapter(n) {
     close(); const g = game();
     if (n === 7) { G.Trip.start(false); return; }
+    if (n === 9) { UI().fade && UI().fade(true); setTimeout(() => G.ArloFarm.begin(), 700); return; }
+    if (n === 8 && G.Arlo) { UI().fade && UI().fade(true); setTimeout(() => { G.Arlo.start(); UI().fade && UI().fade(false); }, 700); return; }
     const f = S().flags; f.fenceDug = true; if (n >= 3) f.hedgeOpen = true; if (n >= 2) f.fastTravel = true;
     if (n === 6) {
       const s = S(); s.chapter = 6; s.step = 'end'; s.time = 7.4; s.weather = 'clear';
@@ -103,7 +106,7 @@
   }
   function panel(msg) {
     const s = S(), f = s.flags, ch = CH();
-    const chs = Object.keys(ch).map(Number).filter((n) => n >= 1 && n <= 7).sort((a, b) => a - b);
+    const chs = Object.keys(ch).map(Number).filter((n) => n >= 1).sort((a, b) => a - b);
     box.innerHTML = `<div class="top"><div><h2>ADMIN PANEL</h2><p class="sub">Now in ${(ch[s.chapter] || [''])[0]}: ${(ch[s.chapter] || ['', ''])[1]} &middot; step <code>${s.step}</code></p></div><button data-x>Close</button></div>
       <div class="grp"><h3>Skip to chapter</h3><div class="row" id="admCh"></div></div>
       <div class="grp"><h3>Story</h3><div class="row" id="admSt"></div></div>
@@ -113,18 +116,18 @@
       <p class="msg">${msg || ''}</p>`;
     box.querySelector('[data-x]').onclick = close;
     const add = (id, label, fn, on) => { const b = document.createElement('button'); b.textContent = label; if (on) b.className = 'on'; b.onclick = fn; box.querySelector('#' + id).appendChild(b); };
-    for (const n of chs) add('admCh', `${n === 7 ? '★' : n} · ${ch[n][1]}`, () => gotoChapter(n), s.chapter === n);
+    for (const n of chs) add('admCh', `${n === 6 ? '❧' : n === 7 ? '★' : n === 8 ? '★★' : n === 9 ? '★★★' : n === 19 ? '∞' : n === 20 ? '?' : n >= 10 && G.SQ && G.SQ.CH[n] ? G.SQ.CH[n].n : n} · ${n === 19 ? 'Free Explore' : n === 6 ? 'Epilogue: ' + ch[n][1] : ch[n][1]}`, () => gotoChapter(n), s.chapter === n);
     add('admSt', 'Finish Mochi quest', () => run(() => { s.quests.mochi = 'done'; f.bestFriends = true; game().applyWorldState && game().applyWorldState(); EXT.applyState && EXT.applyState(game()); }, 'Mochi is now Milo’s best friend.'));
-    add('admSt', 'Complete all missions', () => run(() => { for (const k of ['m1', 'm2', 'm3', 's1', 's2']) s.quests[k] = 'done'; f.m3done = true; }, 'All missions marked complete.'));
+    add('admSt', 'Complete all missions', () => run(() => { for (const k of ['m1', 'm2', 'm3', 's1', 's2', ...Object.keys(G.QUESTS || {})]) s.quests[k] = 'done'; f.m3done = true; }, 'All missions marked complete.'));
     add('admSt', 'Get every collectible', () => run(() => { for (const c of G.COLLECT) if (!s.collected[c.id]) game().giveCollectible(c.id); game().refreshItems && game().refreshItems(); }, 'Collection complete.'));
     add('admSt', 'Fill the satchel', () => run(() => { for (const id of Object.keys(G.ITEMS)) if (!s.inv[id]) s.inv[id] = 1; s.inv.treat = (s.inv.treat || 0) + 10; }, 'Every item added, plus 10 treats.'));
-    add('admSt', 'Unlock fast travel', () => run(() => { f.fastTravel = true; for (const k of ['bedroom', 'backyard', 'street', 'park', 'forestedge', 'clearing', 'shed']) s.discovered[k] = true; }, 'All burrows open on the map.'));
+    add('admSt', 'Unlock fast travel', () => run(() => { f.fastTravel = true; for (const k of ['bedroom', 'backyard', 'street', 'park', 'forestedge', 'clearing', 'shed', ...((G.SQ && G.SQ.travelSpots) || []).map((t) => t[0])]) s.discovered[k] = true; }, 'All burrows open on the map.'));
     add('admSt', 'Owners: chase me!', () => { close(); const C = G.Cast; const h = C && (C.mum.root.visible ? C.mum : C.ellie.root.visible ? C.ellie : null); if (h && G.Cast.startChase) G.Cast.startChase(h, 'bath'); else toast('Nobody is home to chase you right now.'); });
     for (const [t, lbl] of [[7, 'Morning'], [12, 'Noon'], [18.5, 'Sunset'], [22.5, 'Night']]) add('admTw', lbl, () => run(() => { s.time = t; game().applyWorldState(); }, `Time set to ${lbl.toLowerCase()}.`));
-    for (const w of ['clear', 'cloudy', 'rain', 'fog']) add('admTw', w[0].toUpperCase() + w.slice(1), () => run(() => { s.weather = w; game().applyWorldState(); }, `Weather: ${w}.`), s.weather === w);
+    for (const w of ['clear', 'cloudy', 'rain', 'heavyrain', 'storm', 'fog', 'sunset', 'night']) add('admTw', ({ heavyrain: 'Heavy rain' }[w] || w[0].toUpperCase() + w.slice(1)), () => run(() => { s.weather = w; game().applyWorldState(); }, `Weather: ${w}.`), s.weather === w);
     add('admCt', `Super speed ${G.speedBoost > 1 ? 'ON' : 'OFF'}`, () => run(() => { G.speedBoost = G.speedBoost > 1 ? 1 : 2.2; }, G.speedBoost > 1 ? 'Back to normal speed.' : 'Zoom!'), G.speedBoost > 1);
     add('admCt', 'Heal the day (reset treats timer)', () => run(() => { delete f.mumTreatToday; }, 'Mum will hand out another treat.'));
     add('admCt', 'Lock panel again', () => { f.adminUnlocked = false; game().autosave && game().autosave(); entry = ''; keypad('Locked. You’ll need the code again.'); });
-    for (const [lbl, pos, yaw] of TELE) add('admTp', lbl, () => { close(); game().travel(pos, yaw); });
+    for (const [lbl, pos, yaw, rid] of TELE) add('admTp', lbl, () => { close(); tpTo(pos, yaw, rid); });
   }
 })();
