@@ -466,7 +466,7 @@
         ['ellie', q.mochi === 'done' ? 'You and Mochi are best friends now. I’m a little bit jealous. A little.' : 'I wish I could go on adventures like you. Where do you even GO all day?', 'think'],
       ])];
       const opts = [{ t: 'Do a happy war dance', then: [{ do: () => { game().player.dance(2.4); h.pose = 'laugh'; setTimeout(() => (h.pose = 'idle'), 2200); } }, ['ellie', 'Hahaha! Do the dance again! Mum, MUM, he’s doing the dance!', 'happy']] }];
-      if (G.isPost(c) && !has('tripDone') && !has('tripStarted')) opts.unshift({ t: 'Ask about the suitcase by the door', then: [['ellie', 'We’re going on a ROAD TRIP to see Grandpa Arlo! And you and Mochi are coming too! We leave right now!', 'happy'], { do: () => setTimeout(() => startTrip(false), 400) }] });
+      if (G.isPost(c) && c !== 18 && !has('tripDone') && !has('tripStarted')) opts.unshift({ t: 'Ask about the suitcase by the door', then: [['ellie', 'We’re going on a ROAD TRIP to see Grandpa Arlo! And you and Mochi are coming too! We leave right now!', 'happy'], { do: () => setTimeout(() => startTrip(false), 400) }] });
       opts.push({ t: 'Steal her sock and run!', then: [['ellie', 'Hey! My SOCK! Come back here, you little thief!', 'surprised'], { do: () => startChase(h, 'sock') }] });
       return game().say([...lines, { choice: opts }]);
     }

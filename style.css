@@ -393,3 +393,11 @@ select { font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 10px;
 .gfx-dirty { font-size: 13px; color: #9a3b1e; font-weight: 700; }
 @media (max-width: 900px) { .gfx-main { grid-template-columns: 1fr; } .gfx-side { position: static; } .gfx-presets { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .gfx-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* finale credits */
+#credits{position:fixed;inset:0;z-index:60;pointer-events:none;overflow:hidden;background:linear-gradient(90deg,rgba(10,8,6,.75),rgba(10,8,6,0) 45%);opacity:0;transition:opacity 1.5s}
+#credits.on{opacity:1}
+#credits .roll{position:absolute;left:6vw;top:100%;width:min(420px,80vw);color:#f2e6cf;font-family:Georgia,serif;text-align:left;animation:creditsRoll 40s linear forwards}
+#credits h1{font-size:2.6rem;letter-spacing:.3em;margin:0}#credits h2{font-weight:400;font-style:italic;margin:.2em 0 2em}
+#credits .sec{margin-top:1.8em;color:#f2c14e;text-transform:uppercase;letter-spacing:.2em;font-size:.8rem}#credits p{margin:.3em 0}
+#credits .end{font-size:2rem;margin-top:3em}#credits .small{opacity:.7;font-style:italic}
+@keyframes creditsRoll{to{transform:translateY(calc(-100% - 100vh))}}
