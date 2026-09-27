@@ -96,8 +96,17 @@ This build combines the sequel branch (chapters 6–14, Saltwhistle Bay, graphic
 - `trailer.html` plays a 3D trailer built on the game engine.
 
 ## Bonus Chapter IV: What Is This Place? (`js/backrooms.js`)
-From chapter 2 on, a patch of the backyard fence (back left corner) flickers. Sniff it and Milo noclips into **Level 0**: a maze of yellow wallpaper, damp carpet and humming fluorescent lights.
-- Find three bottles of almond water. Scent vision (Q) points to the nearest one.
-- Something walks the halls. When the hum gets loud and the lights flicker, run (Shift). If it catches Milo, he is back where he woke up, and he keeps his bottles.
-- With all three bottles, the EXIT door lights up. Go through it to wake up at home.
-- The admin panel lists it as chapter "?".
+From chapter 2 on, a patch of the backyard fence (back left corner) flickers. Sniff it and Milo noclips into a chain of five levels, one under the other:
+1. **Level 0 · The Lobby**: yellow wallpaper, damp carpet, humming lights. Odd empty rooms (a pillar hall, a room with one office chair, a room where every light is dead), a long hallway that ends in a painted-on door, and rooms with no doors at all. Find 3 bottles of almond water to light the EXIT sign. A flickering static creature walks the halls; if it catches Milo he is back where he woke up.
+2. **Level 1 · The Warehouse**: concrete, puddles, stacked crates, orange lamps, grey fog. Find 4 fuses to power the freight elevator. Every ~30 s the lights flicker for 2.5 s and then go out for 6 s, and eyes open in the dark. Freeze! Moving in the dark sends Milo back to the level start (he keeps what he found).
+3. **Level 2 · Pipe Dreams**: a narrow, dark maze of pipes. Milo wears a little clip-on light. Steam vents puff on a rhythm and push him back. Turn 3 valve wheels to open the floor hatch. The static creature is back, a bit slower.
+4. **Level 3 · The Poolrooms**: bright white tiles, toe-deep water, deep pools (water hazards), echoing drips, no enemies. Calm refills here. Collect 5 rubber ducks to open the ladder.
+5. **Level 4 · The Party That Never Ends**: streamers, confetti, cake tables. Smiling balloons drift after Milo; a balloon hug restarts the level. Pounce (jump) on 6 golden balloons and the giant cake slides aside to show the doorway home.
+
+Also:
+- **Calm meter** (HUD, Backrooms only): drains slowly, faster near the creature, blackouts or balloons, and refills in the Poolrooms. Spare almond water (a few per level, plus the Level 0 bottles) is drunk automatically when Calm is low. At 0 Milo panics and wakes at the level start.
+- **Wanderer’s Notes**: 10 notes (2 per level) from Clementine, a lost hamster, in their own Collection category. Clementine herself is in Level 1 and the Poolrooms with hints.
+- **Checkpoints**: going back through the fence continues from the furthest level reached. After finishing, the next visit starts a fresh run (notes are kept).
+- **Scent vision (Q)** follows the maze to the next goal.
+- **Admin panel**: chapter "?" enters at the checkpoint; the Backrooms group jumps to any level or resets the run.
+- Nothing hurts Milo; every threat only sends him back a bit.

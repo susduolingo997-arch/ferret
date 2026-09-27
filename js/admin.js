@@ -128,6 +128,8 @@
     add('admCt', `Super speed ${G.speedBoost > 1 ? 'ON' : 'OFF'}`, () => run(() => { G.speedBoost = G.speedBoost > 1 ? 1 : 2.2; }, G.speedBoost > 1 ? 'Back to normal speed.' : 'Zoom!'), G.speedBoost > 1);
     add('admCt', 'Heal the day (reset treats timer)', () => run(() => { delete f.mumTreatToday; }, 'Mum will hand out another treat.'));
     add('admCt', 'Lock panel again', () => { f.adminUnlocked = false; game().autosave && game().autosave(); entry = ''; keypad('Locked. You’ll need the code again.'); });
+    // other files can add their own button groups
+    for (const f of G.AdminExtras || []) try { f({ close, toast, group: (title) => { const d = document.createElement('div'); d.className = 'grp'; d.innerHTML = `<h3>${title}</h3><div class="row"></div>`; box.insertBefore(d, box.querySelector('.msg')); return (label, fn, on) => { const b = document.createElement('button'); b.textContent = label; if (on) b.className = 'on'; b.onclick = fn; d.querySelector('.row').appendChild(b); }; } }); } catch (e) { console.warn(e); }
     for (const [lbl, pos, yaw, rid] of TELE) add('admTp', lbl, () => { close(); tpTo(pos, yaw, rid); });
   }
 })();
