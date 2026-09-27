@@ -389,14 +389,28 @@ G.Audio = {
 /* ---------------------------------------------------------------- Textures
    Every surface texture is painted at startup on a canvas.           */
 G.Tex = {
-  cache: {},
+  cache: {}, defs: {}, scale: 1, aniso: 4,
+  /* textures are painted at (w, h) x scale; Texture Quality can repaint them at another scale */
+  paint(key, w, h, draw, s) {
+    const cv = document.createElement('canvas'); cv.width = Math.max(2, Math.round(w * s)); cv.height = Math.max(2, Math.round(h * s)); const g = cv.getContext('2d');
+    g.scale(cv.width / w, cv.height / h); draw(g, w, h, G.U.rng(key.length * 7919 + w)); return cv;
+  },
   make(key, w, h, draw, rx = 1, ry = 1) {
     if (this.cache[key]) return this.cache[key];
-    const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d');
-    draw(g, w, h, G.U.rng(key.length * 7919 + w));
-    const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
-    t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+    const s = w * this.scale > 2048 ? 2048 / w : this.scale;
+    const t = new THREE.CanvasTexture(this.paint(key, w, h, draw, s)); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+    t.encoding = THREE.sRGBEncoding; t.anisotropy = this.aniso;
+    this.defs[key] = { w, h, draw, s };
     return (this.cache[key] = t);
+  },
+  setQuality(scale, aniso) {
+    this.scale = scale; this.aniso = aniso;
+    for (const k in this.cache) {
+      const t = this.cache[k], d = this.defs[k]; if (!t || !d) continue;
+      const s = d.w * scale > 2048 ? 2048 / d.w : scale;
+      if (Math.abs(s - d.s) > 0.01) { t.image = this.paint(k, d.w, d.h, d.draw, s); d.s = s; }
+      t.anisotropy = aniso; t.needsUpdate = true;
+    }
   },
   speckle(g, w, h, r, n, cols, a = 0.15, size = 2) { for (let i = 0; i < n; i++) { g.globalAlpha = a * (0.4 + r() * 0.6); g.fillStyle = cols[Math.floor(r() * cols.length)]; const s = size * (0.5 + r()); g.fillRect(r() * w, r() * h, s, s); } g.globalAlpha = 1; },
   get(name) {

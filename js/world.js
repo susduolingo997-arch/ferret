@@ -928,70 +928,85 @@
     return path;
   };
 
-  /* ================================================================ instanced vegetation */
+  /* ================================================================ instanced vegetation
+     Everything is split into cells so the graphics system can cull by
+     frustum and distance and swap in lower-detail geometry far away. */
+  W.lod = [];
+  W.groundY = (x, z) => 0;
+  function chunked(scene, geo, mat, items, place, o = {}) {
+    const cell = o.cell || 48, groups = new Map();
+    for (const it of items) { const k = Math.floor(it[0] / cell) + ',' + Math.floor(it[o.zi || 1] / cell); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it); }
+    const m4 = new THREE.Matrix4(), col = new THREE.Color(), out = [];
+    for (const [k, arr] of groups) {
+      const per = o.per || 1, im = new THREE.InstancedMesh(o.lo ? o.hiGeo || geo : geo, mat, arr.length * per); let n = 0, minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9, maxY = 0;
+      for (const it of arr) for (let j = 0; j < per; j++) { if (place(it, m4, col, j) === false) continue; im.setMatrixAt(n, m4); if (o.color) im.setColorAt(n, col); const e = m4.elements; minX = Math.min(minX, e[12]); maxX = Math.max(maxX, e[12]); minZ = Math.min(minZ, e[14]); maxZ = Math.max(maxZ, e[14]); maxY = Math.max(maxY, e[13]); n++; }
+      im.count = n; if (!n) continue; im.frustumCulled = false; im.castShadow = o.cast !== false; im.receiveShadow = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      scene.add(im);
+      const c = new THREE.Vector3((minX + maxX) / 2, maxY / 2, (minZ + maxZ) / 2), r = Math.hypot(maxX - minX, maxZ - minZ, maxY) / 2 + (o.pad || 2);
+      const L = { mesh: im, c, r, cls: o.cls || 'tree', hi: o.hiGeo || geo, lo: o.lo || null, loD: o.loD, ug: !!o.ug, total: n }; W.lod.push(L); out.push(L);
+    }
+    return out;
+  }
+  W.chunked = chunked;
   function buildInstanced(scene) {
-    const q = (G.settings && G.settings.quality) || 'high';
+    const gy = (x, z) => W.groundY(x, z);
     // --- trees (deciduous): trunk + canopy blobs
-    const allTrees = W.trees;
     const trunkGeo = new THREE.CylinderGeometry(0.16, 0.26, 1, 8); trunkGeo.translate(0, 0.5, 0);
-    const trunks = new THREE.InstancedMesh(trunkGeo, M.get('bark'), allTrees.length + W.pines.length); trunks.castShadow = true; trunks.receiveShadow = true;
-    const blobGeo = new THREE.IcosahedronGeometry(1, 1);
-    const canopyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: G.Tex.get('foliage') }); W.canopyMat = canopyMat;
+    const canopyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: G.Tex.get('foliage') }); W.canopyMat = canopyMat; canopyMat.userData.outdoor = true;
     windify(canopyMat, 0.12);
-    const blobs = []; const pineBlobs = [];
-    const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), e = new THREE.Euler(), col = new THREE.Color();
-    let ti = 0;
-    for (const [x, z, s, kind] of allTrees) {
-      const h = (kind === 'oak' ? 3.2 : 2.6) * s, r = kind === 'oak' ? 2.2 : 1;
-      m4.compose(V3(x, 0, z), q4.setFromEuler(e.set(0, rng() * 6, 0)), V3(r * s * 0.9, h, r * s * 0.9)); trunks.setMatrixAt(ti++, m4);
-      collider(x - 0.2 * s * r, x + 0.2 * s * r, z - 0.2 * s * r, z + 0.2 * s * r, 0, h + 2, { cam: false });
+    const blobs = [], pineBlobs = [], trunkList = [];
+    const e = new THREE.Euler(), q4 = new THREE.Quaternion();
+    for (const [x, z, s, kind] of W.trees) {
+      const h = (kind === 'oak' ? 3.2 : 2.6) * s, r = kind === 'oak' ? 2.2 : 1, y = gy(x, z);
+      trunkList.push([x, z, r * s * 0.9, h, rng() * 6, y]);
+      collider(x - 0.2 * s * r, x + 0.2 * s * r, z - 0.2 * s * r, z + 0.2 * s * r, y, y + h + 2, { cam: false });
       const nb = kind === 'oak' ? 9 : 5 + Math.floor(rng() * 3);
       const hue = kind === 'apple' ? 0x7fae4a : W.forestTint(x);
-      for (let i = 0; i < nb; i++) { const a = rng() * 6.28, rr = rng() * 1.1 * s * (kind === 'oak' ? 1.6 : 1); blobs.push([x + Math.cos(a) * rr, h + (rng() * 1.3 - 0.2) * s * (kind === 'oak' ? 1.3 : 1), z + Math.sin(a) * rr, (0.9 + rng() * 0.6) * s * (kind === 'oak' ? 1.5 : 1), hue]); }
-      if (kind === 'apple') for (let i = 0; i < 10; i++) { const a = rng() * 6.28, rr = 0.8 + rng() * 0.8; sph({ x: x + Math.cos(a) * rr * s, y: h + (rng() - 0.3) * s, z: z + Math.sin(a) * rr * s, r: 0.07, mat: M.color(0xd9412f, 0.4) }); }
+      for (let i = 0; i < nb; i++) { const a = rng() * 6.28, rr = rng() * 1.1 * s * (kind === 'oak' ? 1.6 : 1); blobs.push([x + Math.cos(a) * rr, z + Math.sin(a) * rr, y + h + (rng() * 1.3 - 0.2) * s * (kind === 'oak' ? 1.3 : 1), (0.9 + rng() * 0.6) * s * (kind === 'oak' ? 1.5 : 1), hue, rng(), rng(), rng(), (rng() - 0.5), (rng() - 0.5)]); }
+      if (kind === 'apple') for (let i = 0; i < 10; i++) { const a = rng() * 6.28, rr = 0.8 + rng() * 0.8; sph({ x: x + Math.cos(a) * rr * s, y: y + h + (rng() - 0.3) * s, z: z + Math.sin(a) * rr * s, r: 0.07, mat: M.color(0xd9412f, 0.4) }); }
     }
     for (const [x, z, s] of W.pines) {
-      const h = 1.2 * s; m4.compose(V3(x, 0, z), q4.identity(), V3(0.7 * s, h, 0.7 * s)); trunks.setMatrixAt(ti++, m4);
-      collider(x - 0.18 * s, x + 0.18 * s, z - 0.18 * s, z + 0.18 * s, 0, 8, { cam: false });
-      for (let i = 0; i < 4; i++) pineBlobs.push([x, h + i * 1.05 * s, z, (1.9 - i * 0.4) * s, 1.6 * s]);
+      const h = 1.2 * s, y = gy(x, z); trunkList.push([x, z, 0.7 * s, h + 1.4 * s, 0, y]);
+      collider(x - 0.18 * s, x + 0.18 * s, z - 0.18 * s, z + 0.18 * s, y, y + 8, { cam: false });
+      // five tapering tiers read as a proper conifer rather than stacked discs
+      for (let i = 0; i < 5; i++) pineBlobs.push([x, z, y + h + i * 0.82 * s, (1.42 - i * 0.25) * s, (1.75 - i * 0.12) * s, rng() * 6, rng()]);
     }
-    trunks.count = ti; scene.add(trunks); W.inst = { trunks };
-    const canopy = new THREE.InstancedMesh(blobGeo, canopyMat, blobs.length); canopy.castShadow = true; canopy.receiveShadow = true;
-    blobs.forEach(([x, y, z, s, c], i) => { m4.compose(V3(x, y, z), q4.setFromEuler(e.set(rng(), rng(), rng())), V3(s, s * 0.85, s)); canopy.setMatrixAt(i, m4); canopy.setColorAt(i, col.set(c).offsetHSL((rng() - 0.5) * 0.04, 0, (rng() - 0.5) * 0.08)); });
-    scene.add(canopy); W.inst.canopy = canopy;
-    const pineGeo = new THREE.ConeGeometry(1, 1, 9); pineGeo.translate(0, 0.5, 0);
-    const pineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: G.Tex.get('foliage') }); windify(pineMat, 0.06);
-    const pines = new THREE.InstancedMesh(pineGeo, pineMat, pineBlobs.length); pines.castShadow = true; pines.receiveShadow = true;
-    pineBlobs.forEach(([x, y, z, r, h], i) => { m4.compose(V3(x, y, z), q4.setFromEuler(e.set(0, rng() * 6, 0)), V3(r, h, r)); pines.setMatrixAt(i, m4); pines.setColorAt(i, col.set(0x3d5a3a).offsetHSL((rng() - 0.5) * 0.03, 0, (rng() - 0.5) * 0.06)); });
-    scene.add(pines); W.inst.pines = pines;
+    chunked(scene, trunkGeo, M.get('bark'), trunkList, ([x, z, w, h, ry, y], m4) => { m4.compose(V3(x, y, z), q4.setFromEuler(e.set(0, ry, 0)), V3(w, h, w)); }, { cls: 'tree' });
+    W.canopyGeo = [new THREE.IcosahedronGeometry(1, 0), new THREE.IcosahedronGeometry(1, 1), new THREE.IcosahedronGeometry(1, 2)];
+    const col = new THREE.Color();
+    W.canopyChunks = chunked(scene, null, canopyMat, blobs, ([x, z, y, s, c, r1, r2, r3, h1, l1], m4, cl) => { m4.compose(V3(x, y, z), q4.setFromEuler(e.set(r1, r2, r3)), V3(s, s * 0.85, s)); cl.set(c).offsetHSL(h1 * 0.04, 0, l1 * 0.08); }, { cls: 'tree', color: true, hiGeo: W.canopyGeo[1], lo: W.canopyGeo[0], loD: 70 });
+    const pineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: G.Tex.get('foliage') }); windify(pineMat, 0.06); pineMat.userData.outdoor = true;
+    const pineHi = new THREE.ConeGeometry(1, 1, 12, 2); pineHi.translate(0, 0.5, 0); { const p = pineHi.attributes.position; for (let i = 0; i < p.count; i++) if (p.getY(i) < 0.05) p.setY(i, p.getY(i) - 0.12); pineHi.computeVertexNormals(); }
+    const pineLo = new THREE.ConeGeometry(1, 1, 6); pineLo.translate(0, 0.5, 0);
+    chunked(scene, null, pineMat, pineBlobs, ([x, z, y, r, h, ry, l], m4, cl) => { m4.compose(V3(x, y, z), q4.setFromEuler(e.set(0, ry, 0)), V3(r, h, r)); cl.set(0x3d5a3a).offsetHSL((l - 0.5) * 0.03, 0, (l - 0.5) * 0.06); }, { cls: 'tree', color: true, hiGeo: pineHi, lo: pineLo, loD: 60 });
     // --- bushes
-    const bushM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: G.Tex.get('foliage') }); windify(bushM, 0.05);
-    const bushes = new THREE.InstancedMesh(blobGeo, bushM, W.bushes.length); bushes.castShadow = true; bushes.receiveShadow = true;
-    W.bushes.forEach(([x, y, z, s, c, solid], i) => { m4.compose(V3(x, y, z), q4.setFromEuler(e.set(rng(), rng(), rng())), V3(s, s * 0.75, s)); bushes.setMatrixAt(i, m4); bushes.setColorAt(i, col.set(c).offsetHSL(0, 0, (rng() - 0.5) * 0.08)); if (solid && s > 0.6) collider(x - s * 0.5, x + s * 0.5, z - s * 0.5, z + s * 0.5, 0.25, 1, { cam: false }); });
-    scene.add(bushes);
+    const bushM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: G.Tex.get('foliage') }); windify(bushM, 0.05); bushM.userData.outdoor = true;
+    W.bushes.forEach(([x, y, z, s, c, solid]) => { if (solid && s > 0.6) collider(x - s * 0.5, x + s * 0.5, z - s * 0.5, z + s * 0.5, 0.25, 1, { cam: false }); });
+    chunked(scene, null, bushM, W.bushes.map((b) => [b[0], b[2], b[1], b[3], b[4], rng(), rng(), rng(), rng()]), ([x, z, y, s, c, a, b2, c2, l], m4, cl) => { m4.compose(V3(x, y + gy(x, z), z), q4.setFromEuler(e.set(a * 6, b2 * 6, c2 * 6)), V3(s, s * 0.75, s)); cl.set(c).offsetHSL(0, 0, (l - 0.5) * 0.08); }, { cls: 'small', color: true, hiGeo: W.canopyGeo[1], lo: W.canopyGeo[0], loD: 45 });
     // --- rocks
     const rockGeo = new THREE.DodecahedronGeometry(1, 0);
     const byMat = {}; for (const r of W.rocks) (byMat[r[4]] = byMat[r[4]] || []).push(r);
     for (const k in byMat) {
-      const arr = byMat[k]; const im = new THREE.InstancedMesh(rockGeo, M.get(k), arr.length); im.castShadow = true; im.receiveShadow = true;
-      arr.forEach(([x, y, z, s, _, big], i) => { m4.compose(V3(x, y + s * 0.2, z), q4.setFromEuler(e.set(rng(), rng(), rng())), V3(s * (1 + rng() * 0.4), s * (0.6 + rng() * 0.4), s)); im.setMatrixAt(i, m4); if (s > 0.35) collider(x - s * 0.8, x + s * 0.8, z - s * 0.8, z + s * 0.8, 0, s * (big ? 3 : 0.9), { cam: !!big }); });
-      scene.add(im);
+      const arr = byMat[k].map((r) => [r[0], r[2], r[1], r[3], r[5], rng(), rng(), rng(), rng(), rng()]);
+      for (const [x, z, y, s, big] of arr) if (s > 0.35) collider(x - s * 0.8, x + s * 0.8, z - s * 0.8, z + s * 0.8, y + gy(x, z), y + gy(x, z) + s * (big ? 3 : 0.9), { cam: !!big });
+      chunked(scene, rockGeo, M.get(k), arr, ([x, z, y, s, big, a, b2, c2, d, f], m4) => { m4.compose(V3(x, y + gy(x, z) + s * 0.2, z), q4.setFromEuler(e.set(a, b2, c2)), V3(s * (1 + d * 0.4), s * (0.6 + f * 0.4), s)); }, { cls: 'small', pad: 3 });
     }
     // --- ferns & reeds
     const fernGeo = new THREE.PlaneGeometry(0.16, 0.7, 1, 3); fernGeo.translate(0, 0.35, 0); { const p = fernGeo.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i); p.setZ(i, y * y * 0.5); } fernGeo.computeVertexNormals(); }
-    const fernMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, side: THREE.DoubleSide, map: G.Tex.get('foliage') }); windify(fernMat, 0.2, true);
-    const nF = W.ferns.length * 5; const ferns = new THREE.InstancedMesh(fernGeo, fernMat, nF); let fi = 0;
-    for (const [x, z, s, kind] of W.ferns) { const fronds = kind === 'reed' ? 3 : 5; for (let k = 0; k < fronds; k++) { const a = (k / fronds) * 6.28 + rng(); m4.compose(V3(x, 0, z), q4.setFromEuler(e.set(kind === 'reed' ? 0 : 0.5 + rng() * 0.3, a, 0, 'YXZ')), V3(s * (kind === 'reed' ? 0.3 : 1), s * (kind === 'reed' ? 1.9 : 1), s)); ferns.setMatrixAt(fi, m4); ferns.setColorAt(fi, col.set(kind === 'reed' ? 0x8a9a4a : 0x5a7a3a).offsetHSL(0, 0, (rng() - 0.5) * 0.1)); fi++; } }
-    ferns.count = fi; ferns.receiveShadow = true; scene.add(ferns);
+    const fernMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, side: THREE.DoubleSide, map: G.Tex.get('foliage') }); windify(fernMat, 0.2, true); fernMat.userData.outdoor = true;
+    chunked(scene, fernGeo, fernMat, W.ferns.map((f) => [f[0], f[1], f[2], f[3], rng(), rng(), rng(), rng(), rng()]), ([x, z, s, kind, r1, r2, r3, r4, r5], m4, cl, k) => {
+      const fronds = kind === 'reed' ? 3 : 5; if (k >= fronds) return false; const a = (k / fronds) * 6.28 + [r1, r2, r3, r4, r5][k];
+      m4.compose(V3(x, gy(x, z), z), q4.setFromEuler(e.set(kind === 'reed' ? 0 : 0.5 + r2 * 0.3, a, 0, 'YXZ')), V3(s * (kind === 'reed' ? 0.3 : 1), s * (kind === 'reed' ? 1.9 : 1), s)); cl.set(kind === 'reed' ? 0x8a9a4a : 0x5a7a3a).offsetHSL(0, 0, (r3 - 0.5) * 0.1);
+    }, { cls: 'small', color: true, per: 5, cast: false });
     // --- flowers
-    const fl = new THREE.InstancedMesh(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshStandardMaterial({ roughness: 0.7 }), W.flowers.length);
-    const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.006, 0.006, 1, 3), M.color(0x4f7a3a), W.flowers.length);
-    W.flowers.forEach(([x, z, c], i) => { const h = 0.2 + rng() * 0.2; m4.compose(V3(x, h, z), q4.identity(), V3(1, 0.7, 1)); fl.setMatrixAt(i, m4); fl.setColorAt(i, col.set(c)); m4.compose(V3(x, h / 2, z), q4.identity(), V3(1, h, 1)); stems.setMatrixAt(i, m4); });
-    scene.add(fl, stems);
-    scene.children.forEach((o) => { if (o.isInstancedMesh) o.frustumCulled = false; });
+    const flM = new THREE.MeshStandardMaterial({ roughness: 0.7 });
+    const flowerItems = W.flowers.map(([x, z, c]) => [x, z, c, 0.2 + rng() * 0.2]);
+    chunked(scene, new THREE.SphereGeometry(0.05, 6, 4), flM, flowerItems, ([x, z, c, h], m4, cl) => { m4.compose(V3(x, h + gy(x, z), z), q4.identity(), V3(1, 0.7, 1)); cl.set(c); }, { cls: 'small', color: true, cast: false });
+    chunked(scene, new THREE.CylinderGeometry(0.006, 0.006, 1, 3), M.color(0x4f7a3a), flowerItems, ([x, z, c, h], m4) => { m4.compose(V3(x, h / 2 + gy(x, z), z), q4.identity(), V3(1, h, 1)); }, { cls: 'small', cast: false });
     // --- grass blades
-    buildGrass(scene, q);
+    buildGrass(scene, G.GFX ? G.GFX.grassDensity || 1 : 1);
   }
+  W.setTreeDetail = function (lvl) { const g = W.canopyGeo[Math.min(2, Math.max(1, lvl))]; for (const c of W.canopyChunks || []) { if (c.mesh.geometry === c.hi) c.mesh.geometry = g; c.hi = g; } };
   W.forestTint = (x) => (x < -50 ? [0x4d6e36, 0x5a7a3a, 0x6b7a35, 0x8a8a3a][Math.floor(rng() * 4)] : [0x55743a, 0x5f8a3a, 0x4d6e36][Math.floor(rng() * 3)]);
   W.windU = { value: 0.3 }; W.timeU = { value: 0 }; W.playerU = { value: new THREE.Vector3() };
   function windify(m, amt, tip) {
@@ -1012,47 +1027,52 @@
     for (const n of W.noGrass) { if (n[0] === 'c') { if ((x - n[1]) ** 2 + (z - n[2]) ** 2 < n[3] * n[3]) return false; } else if (x > n[0] && x < n[1] && z > n[2] && z < n[3]) return false; }
     return true;
   }
-  function buildGrass(scene, q) {
+  let grassScene = null;
+  function buildGrass(scene, density) {
+    grassScene = scene;
     // a single blade: 5 vertices, 3 triangles, tapered to a tip
     const blade = new THREE.BufferGeometry();
     const P = [-0.022, 0, 0, 0.022, 0, 0, -0.014, 0.075, 0.008, 0.014, 0.075, 0.008, 0, 0.15, 0.03];
     blade.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
     blade.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0.3, 0, 1, 0.3, 0, 1, 0.3, 0, 1, 0.3, 0, 1, 0.3], 3));
-    blade.setAttribute('color', new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.72, 0.72, 0.72, 0.72, 0.72, 0.72, 0.88, 0.9, 0.8], 3));
+    blade.setAttribute('color', new THREE.Float32BufferAttribute([0.42, 0.42, 0.42, 0.42, 0.42, 0.42, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.92, 0.94, 0.84], 3));
     blade.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4]);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, vertexColors: true, side: THREE.DoubleSide });
-    mat.onBeforeCompile = (sh) => {
+    const mat = W.grassMat || new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, vertexColors: true, side: THREE.DoubleSide });
+    mat.envMapIntensity = 0.35; mat.userData.outdoor = true;
+    if (!W.grassMat) mat.onBeforeCompile = (sh) => {
       sh.uniforms.uTime = W.timeU; sh.uniforms.uWind = W.windU; sh.uniforms.uPlayer = W.playerU;
       sh.vertexShader = 'uniform float uTime; uniform float uWind; uniform vec3 uPlayer;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
         vec4 ip = instanceMatrix * vec4(0.0,0.0,0.0,1.0);
         float hy = position.y / 0.15;
+        float gust = 0.6 + 0.4 * sin(uTime * 0.37 + ip.x * 0.05) * sin(uTime * 0.23 + ip.z * 0.04);
         float sw = sin(uTime * 1.8 + ip.x * 0.7 + ip.z * 0.5) * 0.5 + sin(uTime * 3.1 + ip.x * 1.3) * 0.2;
         vec2 away = ip.xz - uPlayer.xz; float dp = length(away); float push = smoothstep(0.45, 0.0, dp) * step(abs(ip.y - uPlayer.y), 0.6);
-        vec3 bendW = vec3(sw * (0.05 + uWind * 0.12), 0.0, sw * 0.03) + vec3(away.x, 0.0, away.y) / max(dp, 0.001) * push * 0.18;
+        vec3 bendW = vec3(sw * (0.05 + uWind * 0.12 * gust) + uWind * uWind * 0.05 * gust, 0.0, sw * 0.03) + vec3(away.x, 0.0, away.y) / max(dp, 0.001) * push * 0.18;
         mat3 invR = mat3(instanceMatrix); bendW = transpose(invR) * bendW;
         transformed += bendW * hy * hy;`);
     };
-    const density = q === 'low' ? 7 : 16;
     const pts = [];
     for (const z of W.grassZones) {
       let x0, x1, z0, z1, dens, circ = null;
       if (z[0] === 'c') { circ = z; x0 = z[1] - z[3]; x1 = z[1] + z[3]; z0 = z[2] - z[3]; z1 = z[2] + z[3]; dens = z[4]; } else { [x0, x1, z0, z1, dens] = z; }
-      const n = Math.floor((x1 - x0) * (z1 - z0) * density * dens * (circ ? 0.785 : 1));
+      const n = Math.floor((x1 - x0) * (z1 - z0) * 16 * density * dens * (circ ? 0.785 : 1));
       for (let i = 0; i < n; i++) { const x = x0 + rng() * (x1 - x0), zz = z0 + rng() * (z1 - z0); if (circ && (x - circ[1]) ** 2 + (zz - circ[2]) ** 2 > circ[3] ** 2) continue; if (!grassAllowed(x, zz)) continue; pts.push([x, zz]); }
     }
-    const MAX = q === 'low' ? 40000 : 120000; if (pts.length > MAX) { for (let i = pts.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pts[i], pts[j]] = [pts[j], pts[i]]; } pts.length = MAX; }
-    // chunk into 16m cells so the camera can cull what it can't see
-    const cells = new Map();
-    for (const p of pts) { const k = Math.floor(p[0] / 16) + ',' + Math.floor(p[1] / 16); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(p); }
-    const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), e = new THREE.Euler(), col = new THREE.Color();
-    W.grassChunks = [];
-    for (const [k, arr] of cells) {
-      const [cx, cz] = k.split(',').map(Number);
-      const g = blade.clone(); g.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx * 16 + 8, 0.2, cz * 16 + 8), 12);
-      const im = new THREE.InstancedMesh(g, mat, arr.length); im.receiveShadow = true;
-      arr.forEach(([x, z], i) => { const s = 0.6 + rng() * 0.8; m4.compose(V3(x, 0, z), q4.setFromEuler(e.set((rng() - 0.5) * 0.3, rng() * 6.28, (rng() - 0.5) * 0.3)), V3(1 + rng() * 0.5, s, 1)); im.setMatrixAt(i, m4); const f = x < -50; col.setHSL((f ? 0.2 : 0.24) + (rng() - 0.5) * 0.04, 0.5 + rng() * 0.15, 0.26 + rng() * 0.1); im.setColorAt(i, col); });
-      im.userData.c = g.boundingSphere.center; scene.add(im); W.grassChunks.push(im);
-    }
+    const MAX = Math.round(130000 * Math.max(0.4, density)); if (pts.length > MAX) { for (let i = pts.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pts[i], pts[j]] = [pts[j], pts[i]]; } pts.length = MAX; }
+    const q4 = new THREE.Quaternion(), e = new THREE.Euler();
+    // blade colours are picked in sRGB and converted, so they sit in the same colour space as the painted ground
+    W.grassChunks = chunked(scene, blade, mat, pts, ([x, z], m4, col) => {
+      const s = 0.6 + rng() * 0.8, y = W.groundY(x, z); m4.compose(V3(x, y, z), q4.setFromEuler(e.set((rng() - 0.5) * 0.3, rng() * 6.28, (rng() - 0.5) * 0.3)), V3(1 + rng() * 0.5, s, 1));
+      const f = x < -50; col.setHSL((f ? 0.2 : 0.24) + (rng() - 0.5) * 0.05, 0.42 + rng() * 0.18, 0.3 + rng() * 0.12).convertSRGBToLinear();
+    }, { cell: 16, cls: 'grass', color: true, cast: false, pad: 1 }).map((c) => c.mesh);
     W.grassMat = mat;
   }
+  W.buildGrassExtra = null;
+  /* Vegetation Quality: rebuild the grass at another density */
+  W.rebuildGrass = function (density) {
+    if (!grassScene) return;
+    for (let i = W.lod.length - 1; i >= 0; i--) if (W.lod[i].cls === 'grass' && !W.lod[i].region) { grassScene.remove(W.lod[i].mesh); W.lod[i].mesh.dispose(); W.lod.splice(i, 1); }
+    buildGrass(grassScene, density);
+    if (W.onGrassRebuild) W.onGrassRebuild(density);
+  };
 })();

@@ -29,18 +29,19 @@
     state: 'loading', S: newState(), t: 0,
     init() {
       const cv = (this.canvas = $('#cv'));
-      const q = G.settings.quality;
-      const r = (this.renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: q !== 'low', powerPreference: 'high-performance' }));
-      r.setPixelRatio(Math.min(devicePixelRatio || 1, q === 'high' ? 1.75 : 1));
+      // anti-aliasing, resolution and every other graphics option are handled by gfx.js
+      const r = (this.renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' }));
+      r.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75)); r.info.autoReset = false;
       r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap; r.outputEncoding = THREE.sRGBEncoding;
       r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
+      G.GFX.preInit(r);
       const sc = (this.scene = new THREE.Scene());
       sc.fog = new THREE.FogExp2(0x9fb4c8, 0.01);
       this.camera = new THREE.PerspectiveCamera(58, 1, 0.03, 700);
       // lights
       this.hemi = new THREE.HemisphereLight(0xbcd6ff, 0x6b5a3d, 0.7); sc.add(this.hemi);
       const sun = (this.sun = new THREE.DirectionalLight(0xffffff, 2)); sun.castShadow = true;
-      const ss = q === 'low' ? 1024 : 2048; sun.shadow.mapSize.set(ss, ss); const sc2 = sun.shadow.camera; sc2.left = -18; sc2.right = 18; sc2.top = 18; sc2.bottom = -18; sc2.near = 1; sc2.far = 120;
+      sun.shadow.mapSize.set(2048, 2048); const sc2 = sun.shadow.camera; sc2.left = -18; sc2.right = 18; sc2.top = 18; sc2.bottom = -18; sc2.near = 1; sc2.far = 120;
       sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03; sc.add(sun); sc.add(sun.target);
       this.pool = []; for (let i = 0; i < 5; i++) { const p = new THREE.PointLight(0xffffff, 0, 6, 2); p.userData = { src: null, cur: 0 }; sc.add(p); this.pool.push(p); }
       this.flash = new THREE.SpotLight(0xfff0cc, 0, 10, 0.55, 0.55, 1.6); sc.add(this.flash); sc.add(this.flash.target);
@@ -67,6 +68,7 @@
       this.env = G.env = { night: 0, wind: 0.3, rain: 0, cloud: 0, fog: 0, wet: 0, indoor: false, ug: false, dark: 0 };
       this.weatherNow = { cloud: 0.1, rain: 0, fog: 0, wind: 0.3 };
       this.last = performance.now();
+      G.GFX.init(this);
       this.titleScreen(true);
       requestAnimationFrame((t) => this.loop(t));
     },
@@ -91,13 +93,13 @@
     /* ---------------------------------------------------------------- sky + atmosphere */
     buildSky() {
       const mat = (this.skyMat = new THREE.ShaderMaterial({
-        side: THREE.BackSide, depthWrite: false, fog: false,
-        uniforms: { top: { value: new THREE.Color() }, hor: { value: new THREE.Color() }, bot: { value: new THREE.Color() }, sunDir: { value: V3(0, 1, 0) }, sunCol: { value: new THREE.Color() }, glowI: { value: 1 }, moonDir: { value: V3(0, 1, 0) }, nightK: { value: 0 }, cloudCov: { value: 0.2 }, cloudCol: { value: new THREE.Color(1, 1, 1) }, uTime: W.timeU },
+        side: THREE.BackSide, depthWrite: false, fog: false, defines: { CLOUD_Q: 1, PIPE: 0 },
+        uniforms: { top: { value: new THREE.Color() }, hor: { value: new THREE.Color() }, bot: { value: new THREE.Color() }, sunDir: { value: V3(0, 1, 0) }, sunCol: { value: new THREE.Color() }, glowI: { value: 1 }, moonDir: { value: V3(0, 1, 0) }, nightK: { value: 0 }, cloudCov: { value: 0.2 }, cloudCol: { value: new THREE.Color(1, 1, 1) }, uTime: W.timeU, skyEx: { value: 1 } },
         vertexShader: 'varying vec3 vD; void main(){ vD = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }',
-        fragmentShader: `uniform vec3 top, hor, bot, sunCol, sunDir, moonDir, cloudCol; uniform float glowI, nightK, cloudCov, uTime; varying vec3 vD;
+        fragmentShader: `uniform vec3 top, hor, bot, sunCol, sunDir, moonDir, cloudCol; uniform float glowI, nightK, cloudCov, uTime, skyEx; varying vec3 vD;
           float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
           float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
-          float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }
+          float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 3 + CLOUD_Q * 2; i++){ v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }
           void main(){ vec3 d = normalize(vD); float h = d.y;
             vec3 c = h > 0.0 ? mix(hor, top, pow(clamp(h, 0.0, 1.0), 0.55)) : mix(hor, bot, pow(clamp(-h, 0.0, 1.0), 0.35));
             float s = max(dot(d, sunDir), 0.0); c += sunCol * (pow(s, 900.0) * 3.0 + pow(s, 12.0) * 0.35 * glowI);
@@ -105,7 +107,23 @@
             if (h > 0.0) { vec2 uv = d.xz / (h + 0.18) * 1.1 + vec2(uTime * 0.006, uTime * 0.0025); float n = fbm(uv);
               float th = 1.05 - cloudCov * 0.75; float cl = smoothstep(th - 0.18, th + 0.12, n) * smoothstep(0.0, 0.22, h);
               vec3 cc = cloudCol * (0.85 + 0.25 * fbm(uv * 2.0 + 3.0)) + sunCol * pow(s, 4.0) * 0.4;
+              #if CLOUD_Q > 1
+              // a thinner, faster high layer and sunlit edges
+              vec2 uv2 = d.xz / (h + 0.3) * 0.55 + vec2(uTime * 0.011, -uTime * 0.004); float hi = smoothstep(0.55, 0.95, fbm(uv2 * 1.7)) * smoothstep(0.05, 0.3, h) * (0.25 + cloudCov * 0.45);
+              cc += sunCol * smoothstep(0.35, 0.0, abs(n - th)) * pow(s, 3.0) * 0.6;
+              c = mix(c, cloudCol * 1.05 + sunCol * pow(s, 6.0) * 0.3, hi * 0.5);
+              #endif
+              #if CLOUD_Q > 2
+              // self shadowing: thicker cloud is darker underneath
+              float thick = fbm(uv + normalize(sunDir.xz + 0.001) * 0.09); cc *= mix(1.0, 0.72, smoothstep(th, th + 0.35, thick) * (1.0 - s * 0.5));
+              #endif
               c = mix(c, cc, cl * 0.92); }
+            #if PIPE == 1
+            // the HDR pipeline tone maps everything; hand it the value that maps back to this exact display colour
+            c = clamp(c, 0.0, 0.995); vec3 lin = mix(pow((c + 0.055) / 1.055, vec3(2.4)), c / 12.92, vec3(lessThanEqual(c, vec3(0.04045))));
+            vec3 y = mat3(vec3(0.643038, 0.059269, 0.005962), vec3(0.311187, 0.931436, 0.063929), vec3(0.045775, 0.009295, 0.930118)) * lin; vec3 A = 1.0 - y * 0.983729, B = 0.0245786 - y * 0.4329510, C = -(0.000090537 + y * 0.238081);
+            vec3 v = (-B + sqrt(max(B * B - 4.0 * A * C, 0.0))) / (2.0 * A); c = max(mat3(vec3(1.764741, -0.147028, -0.036337), vec3(-0.675778, 1.160252, -0.162436), vec3(-0.088963, -0.013224, 1.198773)) * v, 0.0) * 0.6 / max(skyEx, 0.05);
+            #endif
             gl_FragColor = vec4(c, 1.0); }`,
       }));
       this.sky = new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), mat); this.sky.renderOrder = -10; this.sky.frustumCulled = false; this.scene.add(this.sky);
@@ -118,7 +136,7 @@
       this.clouds = [];
     },
     buildRain() {
-      const n = 2600, pos = new Float32Array(n * 6); this.rainN = n;
+      const n = 6000, pos = new Float32Array(n * 6); this.rainN = n; this.rainActive = 2600;
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
       this.rain = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xaab8c8, transparent: true, opacity: 0, depthWrite: false })); this.rain.frustumCulled = false; this.scene.add(this.rain);
       this.drops = []; const r = U.rng(5); for (let i = 0; i < n; i++) this.drops.push([r() * 30 - 15, r() * 16, r() * 30 - 15, 14 + r() * 6]);
@@ -493,11 +511,15 @@
     /* ---------------------------------------------------------------- main loop */
     loop(now) {
       requestAnimationFrame((t) => this.loop(t));
-      let dt = Math.min(G.dtMax || 0.05, (now - this.last) / 1000); this.last = now; this.t += dt;
+      if (!G.GFX.frame(now)) return;
+      // rAF timestamps can precede the last performance.now() (e.g. right after the slow world build);
+      // a negative dt would make every damped value (exposure, lights, camera) overshoot wildly
+      let dt = U.clamp((now - this.last) / 1000, 0, G.dtMax || 0.05); this.last = Math.max(now, this.last); this.t += dt;
       I.update();
       try { this.update(dt); } catch (e) { console.error(e); }
       I.endFrame();
-      this.renderer.render(this.scene, this.camera);
+      this.renderer.info.reset();
+      G.GFX.render(dt);
     },
     update(dt) {
       const S = this.S, st = this.state;
@@ -526,7 +548,6 @@
       if (G.EXT) G.EXT.update(dt, st);
       this.particles.update(dt, this.camera);
       for (const f of W.updaters) f(this.t);
-      if (W.grassChunks) { const cp = this.camera.position, far = G.settings.quality === 'low' ? 38 : 60; for (const gm of W.grassChunks) { const c = gm.userData.c; gm.visible = cp.y > UG + 12 && (c.x - cp.x) ** 2 + (c.z - cp.z) ** 2 < far * far; } }
       if (W.obj.pendulum) { W.obj.pendulum.rotation.z = Math.sin(this.t * Math.PI) * 0.18; W.obj.pendulum.updateMatrix(); }
       if (W.obj.embers) { W.obj.embers.material.emissiveIntensity = 1.6 + Math.sin(this.t * 9) * 0.3 + Math.sin(this.t * 23) * 0.2; }
       if (W.obj.flap) { const p = this.player.pos; const d = Math.hypot(p.x - 5, p.z + 6); W.obj.flap.rotation.x = U.damp(W.obj.flap.rotation.x, d < 0.45 && !W.col.petFlap.on ? (p.z < -6 ? -1.1 : 1.1) : 0, 8, dt); }
@@ -606,12 +627,13 @@
       const rv = wn.rain * (E.indoor || E.ug ? 0 : 1); this.rain.material.opacity = rv * 0.42; this.rain.visible = rv > 0.02;
       if (this.rain.visible) {
         const arr = this.rain.geometry.attributes.position.array, cp = this.camera.position, wx = wn.wind * 2.5;
-        for (let j = 0; j < this.rainN; j++) { const d = this.drops[j]; d[1] -= d[3] * dt; if (d[1] < -1) { d[1] = 14 + Math.random() * 2; d[0] = Math.random() * 30 - 15; d[2] = Math.random() * 30 - 15; } const x = cp.x + d[0], y = cp.y - 3 + d[1], z = cp.z + d[2]; arr[j * 6] = x; arr[j * 6 + 1] = y; arr[j * 6 + 2] = z; arr[j * 6 + 3] = x + wx * 0.03; arr[j * 6 + 4] = y + 0.35; arr[j * 6 + 5] = z; }
+        const nA = Math.min(this.rainN, this.rainActive || 2600); this.rain.geometry.setDrawRange(0, nA * 2);
+        for (let j = 0; j < nA; j++) { const d = this.drops[j]; d[1] -= d[3] * dt; if (d[1] < -1) { d[1] = 14 + Math.random() * 2; d[0] = Math.random() * 30 - 15; d[2] = Math.random() * 30 - 15; } const x = cp.x + d[0], y = cp.y - 3 + d[1], z = cp.z + d[2]; arr[j * 6] = x; arr[j * 6 + 1] = y; arr[j * 6 + 2] = z; arr[j * 6 + 3] = x + wx * 0.03; arr[j * 6 + 4] = y + 0.35; arr[j * 6 + 5] = z; }
         this.rain.geometry.attributes.position.needsUpdate = true;
       }
       // env map from the sky every few seconds
       this._envT = (this._envT || 99) + dt;
-      if (this._envT > 4 && !E.ug) { this._envT = 0; const rt = this.pmrem.fromEquirectangular(this.paintEnv(top, hor, bot, sd, sunC, night)); if (this.envRT) this.envRT.dispose(); this.envRT = rt; this.scene.environment = rt.texture; }
+      if (this._envT > G.GFX.envInterval && !E.ug) { this._envT = 0; const rt = this.pmrem.fromEquirectangular(this.paintEnv(top, hor, bot, sd, sunC, night)); if (this.envRT) this.envRT.dispose(); this.envRT = rt; this.scene.environment = rt.texture; }
       if (E.ug && this.scene.environment) { this.scene.environment = null; this._envT = 99; }
       // local lights
       this.updateLights(dt, night);
@@ -639,16 +661,17 @@
       this._ffT = (this._ffT || 0) + dt;
       if (this._ffT > 0.12) {
         this._ffT = 0;
-        if (night > 0.5 && !E.indoor && !E.ug && wn.rain < 0.3 && (ar.id === 'backyard' || ar.id === 'clearing' || ar.zone === 'forest')) { const q = this.player.pos; this.particles.emit({ x: q.x + (Math.random() - 0.5) * 16, y: 0.3 + Math.random() * 1.5, z: q.z + (Math.random() - 0.5) * 16, vx: 0, vy: 0.05, vz: 0, life: 4, size: 0.07, col: 0xd9ff7a, glow: true, wander: 0.6, blink: true }); }
-        if ((E.indoor && !E.ug && night < 0.5) || E.ug) { const q = this.player.pos; this.particles.emit({ x: q.x + (Math.random() - 0.5) * 5, y: q.y + Math.random() * 1.6, z: q.z + (Math.random() - 0.5) * 5, vx: 0, vy: -0.01, vz: 0, life: 5, size: 0.018, col: 0xffe9c0, glow: true, wander: 0.05, alpha: 0.35 }); }
-        if (ar.zone === 'forest' && !E.indoor && Math.random() < 0.3) { const q = this.player.pos; this.particles.emit({ x: q.x + (Math.random() - 0.5) * 12, y: 4 + Math.random() * 3, z: q.z + (Math.random() - 0.5) * 12, vx: 0.2, vy: -0.4, vz: 0.1, life: 9, size: 0.06, col: [0xc07a2a, 0xa8a03a, 0xd9a040][Math.floor(Math.random() * 3)], leaf: true, wander: 0.4, grav: 0 }); }
+        if (night > 0.5 && !E.indoor && !E.ug && wn.rain < 0.3 && (ar.id === 'backyard' || ar.id === 'clearing' || ar.zone === 'forest')) { const q = this.player.pos; this.particles.ambient({ x: q.x + (Math.random() - 0.5) * 16, y: 0.3 + Math.random() * 1.5, z: q.z + (Math.random() - 0.5) * 16, vx: 0, vy: 0.05, vz: 0, life: 4, size: 0.07, col: 0xd9ff7a, glow: true, wander: 0.6, blink: true }); }
+        if ((E.indoor && !E.ug && night < 0.5) || E.ug) { const q = this.player.pos; this.particles.ambient({ x: q.x + (Math.random() - 0.5) * 5, y: q.y + Math.random() * 1.6, z: q.z + (Math.random() - 0.5) * 5, vx: 0, vy: -0.01, vz: 0, life: 5, size: 0.018, col: 0xffe9c0, glow: true, wander: 0.05, alpha: 0.35 }); }
+        if (ar.zone === 'forest' && !E.indoor && Math.random() < 0.3) { const q = this.player.pos; this.particles.ambient({ x: q.x + (Math.random() - 0.5) * 12, y: 4 + Math.random() * 3, z: q.z + (Math.random() - 0.5) * 12, vx: 0.2, vy: -0.4, vz: 0.1, life: 9, size: 0.06, col: [0xc07a2a, 0xa8a03a, 0xd9a040][Math.floor(Math.random() * 3)], leaf: true, wander: 0.4, grav: 0 }); }
       }
       if (this.notes && this.notes.t > 0) { this.notes.t -= dt; if (Math.random() < dt * 5) this.particles.emit({ x: this.notes.pos.x + (Math.random() - 0.5) * 0.2, y: this.notes.pos.y + 0.15, z: this.notes.pos.z + (Math.random() - 0.5) * 0.2, vx: (Math.random() - 0.5) * 0.2, vy: 0.35, vz: (Math.random() - 0.5) * 0.2, life: 2.2, size: 0.09, col: 0xffd070, glow: true, note: true, wander: 0.3 }); }
     },
     /* a small painted equirect sky, blurred by PMREM into image-based lighting */
     paintEnv(top, hor, bot, sd, sunC, night) {
-      if (!this.envCv) { this.envCv = document.createElement('canvas'); this.envCv.width = 256; this.envCv.height = 128; this.envTex = new THREE.CanvasTexture(this.envCv); this.envTex.mapping = THREE.EquirectangularReflectionMapping; this.envTex.encoding = THREE.sRGBEncoding; }
-      const g = this.envCv.getContext('2d'), css = (c) => '#' + c.getHexString();
+      const ER = G.GFX.envRes; if (this.envCv && this.envCv.width !== ER) { this.envTex.dispose(); this.envCv = null; }
+      if (!this.envCv) { this.envCv = document.createElement('canvas'); this.envCv.width = ER; this.envCv.height = ER / 2; this.envTex = new THREE.CanvasTexture(this.envCv); this.envTex.mapping = THREE.EquirectangularReflectionMapping; this.envTex.encoding = THREE.sRGBEncoding; }
+      const g = this.envCv.getContext('2d'), css = (c) => '#' + c.getHexString(); g.setTransform(ER / 256, 0, 0, ER / 256, 0, 0);
       const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, css(top)); gr.addColorStop(0.48, css(hor)); gr.addColorStop(0.52, css(new THREE.Color(0x4a5a38).multiplyScalar(1 - night * 0.8))); gr.addColorStop(1, css(bot)); g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
       const u = (Math.atan2(sd.x, -sd.z) / (Math.PI * 2) + 0.5) * 256, v = (1 - (Math.asin(U.clamp(sd.y, -1, 1)) / Math.PI + 0.5)) * 128;
       const sg = g.createRadialGradient(u, v, 0, u, v, 40); const sc = sunC.clone().multiplyScalar(1 - night); sg.addColorStop(0, `rgba(${sc.r * 255 | 0},${sc.g * 255 | 0},${sc.b * 255 | 0},0.9)`); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.fillRect(0, 0, 256, 128);
@@ -987,20 +1010,31 @@
   /* ================================================================ PARTICLES */
   class Particles {
     constructor(scene) {
-      this.max = 1400; this.list = [];
+      this.max = 2200; this.list = []; this.free = []; this.scene = scene;
       const mk = (additive) => {
-        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.max * 3), 3)); g.setAttribute('pcol', new THREE.BufferAttribute(new Float32Array(this.max * 4), 4)); g.setAttribute('size', new THREE.BufferAttribute(new Float32Array(this.max), 1));
         const m = new THREE.ShaderMaterial({
           uniforms: { map: { value: G.Tex.get('glow') }, uH: { value: 800 } }, transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
           vertexShader: 'attribute float size; attribute vec4 pcol; varying vec4 vC; uniform float uH; void main(){ vC = pcol; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_PointSize = size * uH / max(-mv.z, 0.05); gl_Position = projectionMatrix * mv; }',
           fragmentShader: 'uniform sampler2D map; varying vec4 vC; void main(){ vec4 t = texture2D(map, gl_PointCoord); gl_FragColor = vec4(vC.rgb, vC.a * t.a); }',
         });
-        const pts = new THREE.Points(g, m); pts.frustumCulled = false; scene.add(pts); return pts;
+        const pts = new THREE.Points(this.geo(), m); pts.frustumCulled = false; scene.add(pts); return pts;
       };
       this.glow = mk(true); this.solid = mk(false); this.col = new THREE.Color();
     }
+    geo() { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.max * 3), 3)); g.setAttribute('pcol', new THREE.BufferAttribute(new Float32Array(this.max * 4), 4)); g.setAttribute('size', new THREE.BufferAttribute(new Float32Array(this.max), 1)); return g; }
+    /* Particle Quality changes the pool size */
+    setMax(n) { if (n === this.max) return; this.max = n; for (const p of [this.glow, this.solid]) { p.geometry.dispose(); p.geometry = this.geo(); } if (this.list.length > n * 2) this.list.length = n * 2; }
     resize(h, cam) { const uH = h / (2 * Math.tan((cam.fov * Math.PI) / 360)); this.glow.material.uniforms.uH.value = uH; this.solid.material.uniforms.uH.value = uH; }
-    emit(o) { if (this.list.length >= this.max * 2 - 4) return; o.t = 0; o.alpha = o.alpha ?? 1; this.list.push(o); }
+    /* particles are pooled objects: emit copies the options into a recycled record */
+    emit(o) {
+      if (this.list.length >= this.max * 2 - 4) return;
+      const p = this.free.pop() || {};
+      p.x = o.x; p.y = o.y; p.z = o.z; p.vx = o.vx || 0; p.vy = o.vy || 0; p.vz = o.vz || 0; p.life = o.life || 1; p.size = o.size || 0.05; p.col = o.col ?? 0xffffff;
+      p.glow = !!o.glow; p.grav = o.grav || 0; p.wander = o.wander || 0; p.blink = !!o.blink; p.note = !!o.note; p.leaf = !!o.leaf; p.zz = !!o.zz; p.alpha = o.alpha ?? 1; p.t = 0;
+      this.list.push(p); return p;
+    }
+    /* ambient effects scale with Particle Quality; gameplay feedback (scent trails, sparks) never does */
+    ambient(o) { const m = G.GFX.pMul; if (m < 1 ? Math.random() < m : true) { const p = this.emit(o); if (p && m > 1 && Math.random() < m - 1) { const q = this.emit(o); if (q) { q.x += (Math.random() - 0.5) * 2; q.z += (Math.random() - 0.5) * 2; } } } }
     burst(pos, n, col, kind) {
       for (let i = 0; i < n; i++) {
         const a = Math.random() * 6.28, s = Math.random();
@@ -1011,14 +1045,15 @@
       }
     }
     update(dt) {
-      const G1 = this.glow.geometry.attributes, G2 = this.solid.geometry.attributes; let n1 = 0, n2 = 0;
-      for (let i = this.list.length - 1; i >= 0; i--) {
-        const p = this.list[i]; p.t += dt; if (p.t >= p.life) { this.list.splice(i, 1); continue; }
+      const G1 = this.glow.geometry.attributes, G2 = this.solid.geometry.attributes; let n1 = 0, n2 = 0; const L = this.list;
+      for (let i = L.length - 1; i >= 0; i--) {
+        const p = L[i]; p.t += dt;
+        if (p.t >= p.life) { L[i] = L[L.length - 1]; L.pop(); this.free.push(p); continue; }
         if (p.grav) p.vy -= p.grav * dt; if (p.wander) { p.vx += (Math.random() - 0.5) * p.wander * dt * 4; p.vz += (Math.random() - 0.5) * p.wander * dt * 4; p.vy += (Math.random() - 0.5) * p.wander * dt * 2; }
         p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
         const k = p.t / p.life; let a = p.alpha * Math.min(1, k * 6) * (1 - k); if (p.blink) a *= 0.5 + 0.5 * Math.sin(p.t * 6 + p.x * 10);
         this.col.set(p.col);
-        const tgt = p.glow ? [G1, n1++] : [G2, n2++]; const [A2, j] = tgt; if (j >= this.max) continue;
+        const A2 = p.glow ? G1 : G2, j = p.glow ? n1++ : n2++; if (j >= this.max) continue;
         A2.position.array[j * 3] = p.x; A2.position.array[j * 3 + 1] = p.y; A2.position.array[j * 3 + 2] = p.z;
         A2.pcol.array[j * 4] = this.col.r; A2.pcol.array[j * 4 + 1] = this.col.g; A2.pcol.array[j * 4 + 2] = this.col.b; A2.pcol.array[j * 4 + 3] = a;
         A2.size.array[j] = p.size * (p.note ? 1 + Math.sin(p.t * 8) * 0.2 : 1);
@@ -1160,7 +1195,8 @@
       const m = $('#menu'); m.hidden = false; m.classList.toggle('fromTitle', !!fromTitle); this.panel = tab; A.play('ui-open');
       $$('#menu [data-tab]').forEach((b) => b.classList.toggle('sel', b.dataset.tab === tab));
       $$('#menu .panel').forEach((p) => (p.hidden = p.dataset.panel !== tab));
-      $('#menuTitle').textContent = { pause: 'Paused', inventory: 'Satchel', collection: 'Collection', map: 'Map', saves: 'Save & Load', settings: 'Settings', controls: 'Controls', history: 'Conversation Log', quests: 'Quests & Clues' }[tab];
+      $('#menuTitle').textContent = { pause: 'Paused', inventory: 'Satchel', collection: 'Collection', map: 'Map', saves: 'Save & Load', settings: 'Settings', controls: 'Controls', history: 'Conversation Log', quests: 'Quests & Clues', graphics: 'Graphics' }[tab];
+      if (tab === 'settings') { const P = G.GFX.PORDER.find(([k]) => k === G.GFX.presetOf(G.GFX.cfg)); $('#gfxSummary').textContent = 'Preset: ' + (P ? P[1] : 'Custom') + ' · ' + G.GFX.estimate(G.GFX.cfg).label; }
       if (tab === 'pause') this.renderPause();
       if (tab === 'inventory') this.renderInv();
       if (tab === 'collection') this.renderCollection();
@@ -1224,7 +1260,7 @@
       const bindS = (id, key, fn) => { const el = $('#' + id); el.value = S[key]; el.onchange = () => { S[key] = el.value; saveSettings(); fn && fn(); }; };
       bindR('setMusic', 'music'); bindR('setSfx', 'sfx'); bindR('setAmb', 'amb'); bindR('setSens', 'sens'); bindR('setText', 'textSpeed');
       bindC('setMuteMusic', 'muteMusic'); bindC('setMuteSfx', 'muteSfx'); bindC('setInvert', 'invertY'); bindC('setTime', 'timeFlow'); bindC('setLock', 'pointerLock'); bindC('setShake', 'shake'); bindC('setAutoCam', 'autoCam');
-      bindS('setQuality', 'quality', () => { game.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, S.quality === 'high' ? 1.75 : 1)); game.resize(); this.toast('<b>Graphics updated</b>', null, 'Grass density changes apply the next time the game loads.'); });
+      $('#openGfx').onclick = () => { A.play('ui'); this.menu('graphics', this.fromTitle); };
       bindS('setWeather', 'weather');
     },
     /* ---- map */

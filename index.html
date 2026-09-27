@@ -78,6 +78,7 @@
         <button data-tab="history" class="ingame">Log</button>
         <button data-tab="saves">Save &amp; Load</button>
         <button data-tab="settings">Settings</button>
+        <button data-tab="graphics">Graphics</button>
         <button data-tab="controls">Controls</button>
       </aside>
       <section class="page">
@@ -105,8 +106,8 @@
             <label class="ck"><input id="setMuteSfx" type="checkbox"> Mute sound effects &amp; ambience</label>
           </fieldset>
           <fieldset><legend>World</legend>
-            <label>Graphics <select id="setQuality"><option value="high">High</option><option value="low">Low (faster)</option></select></label>
-            <label>Weather <select id="setWeather"><option value="story">Follow the story</option><option value="clear">Always clear</option><option value="cloudy">Cloudy</option><option value="rain">Rain</option><option value="fog">Light fog</option></select></label>
+            <div class="gfxlink"><button type="button" id="openGfx" class="btn small">Graphics settings&hellip;</button><small id="gfxSummary"></small></div>
+            <label>Weather <select id="setWeather"><option value="story">Follow the story</option><option value="clear">Always clear</option><option value="cloudy">Cloudy</option><option value="rain">Rain</option><option value="fog">Light fog</option><option value="heavyrain">Heavy rain</option><option value="storm">Storm</option><option value="sunset">Sunset</option><option value="night">Night</option><option value="morning">Early morning</option></select></label>
             <label class="ck"><input id="setTime" type="checkbox"> Time of day passes</label>
           </fieldset>
           <fieldset><legend>Camera &amp; text</legend>
@@ -118,6 +119,7 @@
             <label class="ck"><input id="setShake" type="checkbox"> Camera shake</label>
           </fieldset>
         </div>
+        <div class="panel gfxP" data-panel="graphics"></div>
         <div class="panel controls" data-panel="controls">
           <table>
             <tr><th></th><th>Keyboard &amp; mouse</th><th>Controller</th></tr>
@@ -184,6 +186,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/gfx-pipeline.js"></script>
+<script src="js/gfx.js"></script>
 <script src="js/actors.js"></script>
 <script src="js/world.js"></script>
 <script src="js/story.js"></script>
