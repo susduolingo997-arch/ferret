@@ -369,7 +369,8 @@
     if (!G.game || !P.front) return;
     const g = game(), o = sh(), stg = stage();
     // the building's state
-    P.reno.visible = stg === 'reno' || stg === 'ready';
+    // the scaffolding comes down for the party itself
+    P.reno.visible = (stg === 'reno' || stg === 'ready') && !SHOP.partyUp;
     P.party.visible = stg === 'open' || !!SHOP.partyUp;
     P.ribbon.visible = !!SHOP.partyUp && !SHOP.ribbonCut;
     P.bell.visible = !!o.bell || stg === 'open';
