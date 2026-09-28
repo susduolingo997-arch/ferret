@@ -1916,6 +1916,9 @@
     for (const id in FOLK) {
       const h = FOLK[id];
       if (h.chase) { h.update(dt, { lookY: h.lookY }); continue; }
+      // a cutscene (the shop reopening) can hold someone on a mark
+      const hold = T.sceneHold && T.sceneHold[id];
+      if (hold) { h.root.visible = true; h.pos.set(hold[0], 0, hold[1]); h.yaw = hold[2]; h.pose = hold[3] || 'idle'; h.speed = 0; h.update(dt, { lookY: 0 }); h.active = false; continue; }
       const w = open() && !G.SEQ.running ? windowFor(h) : null;
       const inRange = Math.hypot(pl.pos.x - (h.pos.x || 0), pl.pos.z - (h.pos.z || 0)) < 140;
       if (!w) { h.root.visible = false; h.active = false; continue; }
@@ -2215,4 +2218,277 @@
       d.col.on = shut; d.g.visible = shut;
     }
   });
+})();
+
+/* =====================================================================
+   world-town.js (part six) - the secret tunnel to Gus's Gas & Snacks.
+   After the road trip (flag tripDone), a loose drain grate at the east
+   end of Maple Street leads down a long crawl tunnel that comes up under
+   the gas station's back fence. The station then has its own Gus (the
+   road-trip one stays exactly as it was, and only appears in chapter 7),
+   Corvin on the canopy, a daily snack, a lucky-wrench quest, and a chase
+   if Milo helps himself from the snack rack.
+   ===================================================================== */
+(function () {
+  const U = G.U, M = G.Mat, A = G.Audio, W = G.World, UG = W.UG, R = G.Regions, NPC = G.NPC, SQ = G.SQ, T = G.Town;
+  const game = () => G.game, S = () => G.game.S, UI = () => G.UI, C = () => G.Cast, K = () => G.Kit;
+  const has = (k) => !!(G.game && G.game.S.flags[k]);
+  const ch = () => (G.game ? G.game.S.chapter : 0);
+  const Q = (id) => (S().quests || {})[id];
+  const item = (id) => G.game.hasItem(id);
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const add = (o) => G.INTERACT.push(o);
+  const award = (id) => G.Extras && G.Extras.award && G.Extras.award(id);
+  /* the tunnel and the visits open once the road trip is over, in any
+     chapter except the road trip itself */
+  const gusOpen = () => has('tripDone') && ch() !== 7;
+  T.gusOpen = gusOpen;
+  const inLot = (p) => p.x > 153 && p.x < 205 && p.z > -25 && p.z < 25 && p.y > -5;
+
+  /* ================================================================ THE TUNNEL (underground layer) */
+  const TUN = [[152, UG, 46], [156, UG, 46.6], [160, UG, 49.6], [165, UG, 50.2], [170, UG, 52.8], [175, UG, 53], [180, UG, 55.8], [185, UG, 56.2], [190, UG, 58.4], [194, UG, 58.6]];
+  R.def({
+    id: 'gustunnel', ug: true, name: 'The Long Tunnel', bounds: [148, 198, 42, 62],
+    areas: [['gusTunnel', 'The Long Tunnel', 148, 198, 42, 62, { ug: true, zone: 'under', surf: 'dirt', dark: true }]],
+    build(ctx) {
+      const { H } = ctx, root = ctx.root;
+      H.tunnel('GUSTUN', TUN);
+      // old pipes running along the wall, the rust-brown kind nobody has used in fifty years
+      for (const [x0, z0, x1, z1] of [[155, 46.1, 160.6, 49.1], [170, 52.4, 175.4, 52.6], [184, 55.8, 189.6, 58]]) {
+        const len = Math.hypot(x1 - x0, z1 - z0), a = Math.atan2(x1 - x0, z1 - z0);
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, len, 10), M.std('oldPipe', { color: 0x7a4a2a, rough: 0.7, metal: 0.4 }));
+        p.rotation.x = Math.PI / 2; p.rotation.y = a; p.rotation.order = 'YXZ'; p.position.set((x0 + x1) / 2, UG + 0.52, (z0 + z1) / 2); root.add(p);
+      }
+      // a forgotten toy car, half buried
+      if (G.Kit && G.Kit.makeCar) { const car = G.Kit.makeCar(0xd9573b, false); car.scale.setScalar(0.07); car.position.set(166.2, UG + 0.02, 50.7); car.rotation.set(0.15, 0.8, 0.1); car.traverse((m) => (m.userData.dynamic = true)); root.add(car); T.toyCar = car; }
+      // extra roots dangling in the middle stretch
+      for (let i = 0; i < 10; i++) { const x = 168 + i * 1.6, z = 51.5 + i * 0.5; const r = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.025, 0.5, 5), M.color(0x6b4a33)); r.position.set(x, UG + 0.6, z); r.rotation.z = (i % 3 - 1) * 0.4; root.add(r); }
+      // the mole's burrow: a little side chamber with a bed of leaves
+      H.sph({ x: 177.4, y: UG + 0.03, z: 53.9, r: 0.34, sy: 0.12, mat: M.std('leafBed', { color: 0x8a6a3a, rough: 1 }) });
+      H.light(163, UG + 0.4, 50, 0x6fe0c4, 0.5, 3, { ug: true }); H.light(186, UG + 0.4, 56.6, 0x6fe0c4, 0.5, 3, { ug: true });
+    },
+  });
+  T.regions.gustunnel = R.byId.gustunnel;
+
+  /* ---- the two ends: a loose grate on Maple Street, a hole under the back fence */
+  const GRATE = [88.4, 18.2], EXIT = [181.6, 23.6];
+  { const oInit = G.EXT.init;
+    G.EXT.init = function (g) {
+      oInit(g);
+      const gr = new THREE.Group(); gr.position.set(GRATE[0], 0.016, GRATE[1]); gr.rotation.y = 0.35; g.scene.add(gr);
+      const gp = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.42), M.color(0x0c0908, 1)); gp.rotation.x = -Math.PI / 2; gr.add(gp);
+      for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.42), M.get('darkmetal')); b.position.set(-0.24 + i * 0.12, 0.012, 0); gr.add(b); }
+      gr.children[3].rotation.y = 0.4; gr.children[3].position.y = 0.03; // one bar hangs loose
+      const hole = new THREE.Mesh(new THREE.CircleGeometry(0.3, 14), M.color(0x0b0706, 1)); hole.rotation.x = -Math.PI / 2; hole.position.set(EXIT[0], 0.018, EXIT[1]); g.scene.add(hole);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.07, 6, 16), M.get('dirt')); rim.rotation.x = Math.PI / 2; rim.position.set(EXIT[0], 0.03, EXIT[1]); g.scene.add(rim);
+      T.gusEnds = [gr, hole, rim];
+    }; }
+  SQ.onApply(() => { for (const m of T.gusEnds || []) m.visible = has('tripDone'); });
+
+  add({ id: 'gus_grateIn', pos: [GRATE[0], 0, GRATE[1]], r: 0.85, label: 'Lift the loose drain grate', anim: 'sniff', when: () => gusOpen(),
+    act: () => game().travel([152.4, UG, 46.1], Math.PI / 2, () => { if (!has('visit_gustunnel')) { game().flag('visit_gustunnel'); A.play('secret'); UI().toast('<b>Secret place</b>', null, 'A long, old tunnel heading east. It smells of engine oil at the far end.'); award('ach_gustunnel'); } }) });
+  add({ id: 'gus_back', pos: [152.2, UG, 46], r: 0.7, label: 'Climb up to Maple Street', act: () => game().travel([88.4, 0, 18.9], 0) });
+  add({ id: 'gus_up', pos: [193.8, UG, 58.6], r: 0.7, label: 'Poke your head up under the fence', act: () => game().travel([EXIT[0], 0, EXIT[1] - 0.7], Math.PI, () => { const s = S(); s.discovered.station = true; if (!has('gusVisitHello')) setTimeout(() => gusHello(), 600); }) });
+  add({ id: 'gus_down', pos: [EXIT[0], 0, EXIT[1]], r: 0.8, label: 'Dive back into the tunnel', anim: 'sniff', when: () => gusOpen(), act: () => game().travel([193.6, UG, 58.5], -Math.PI / 2) });
+
+  /* ---- three things to find in the tunnel */
+  Object.assign(G.ITEMS, {
+    luckywrench: { name: 'Gus’s Lucky Wrench', desc: 'A heavy old wrench with GUS scratched on the handle. It has fixed every car on Highway 9, apparently.' },
+  });
+  G.COLLECT.push(
+    { id: 's_keyring', cat: 'secrets', model: 'keychain', name: 'Lost Key Ring', desc: 'Three keys and a plastic strawberry. Somebody has been locked out of something since about 1994.', pos: [159.2, UG + 0.02, 49.2] },
+    { id: 's_capcoll', cat: 'secrets', model: 'bottlecap', name: 'Bottle Cap Collection', desc: 'Forty-one bottle caps in a neat pile, sorted by colour. Somebody down here has standards.', pos: [185.4, UG + 0.02, 56.6] },
+    { id: 's_weasel', cat: 'secrets', model: 'photo', name: 'Weasel of the Month', desc: 'A spare print of the photo on Gus’s wall, fallen under the frame: Milo, mid-sneeze, WEASEL OF THE MONTH. He is technically a ferret. He will allow it.', pos: [189.2, 0.03, 4.8] },
+  );
+
+  /* ---- the mole who is trying to sleep */
+  NPC.add({
+    id: 'dozer', name: 'Old Dozer', kind: 'mole', sound: 'mole', portrait: true,
+    look: { scale: 1.2, color: 0x3a3032 }, pos: [177.4, UG, 53.9], yaw: 2.6, wander: 0, when: () => has('tripDone'),
+    lines: () => {
+      const n = (S().town || {}).dozer || 0; const s = S(); s.town = s.town || {}; s.town.dozer = n + 1;
+      if (n === 0) return [
+        ['dozer', 'Mmmph. Whossat. Who’s stomping.', 'sleepy'],
+        ['milo', '*Sorry! I’m just passing through. I’m going to the gas station.*', 'surprised'],
+        ['dozer', 'Everybody’s just passing through. Nobody’s ever just sleeping through. Except me. I’m trying to.', 'sleepy'],
+        ['dozer', 'Mind the toy car. And the pipes. And the forty-one bottle caps, which are MINE and sorted and you will not touch them.', 'think'],
+        ['dozer', '...Zzzz.', 'sleepy'],
+      ];
+      if (n === 1) return [['dozer', 'Still here? Mmph. The gas man drops crisps by the fence. Salt and vinegar. Worst flavour. Bring me some.', 'sleepy'], ['dozer', 'Zzz.', 'sleepy']];
+      return [['dozer', pick(['*snore* ...no... not the cheese ones...', 'Zzzz. Go away. Zzzz.', 'I am asleep. This is me, asleep, talking. Leave.', '*snnnrk* ...forty-one...']), 'sleepy']];
+    },
+  });
+
+  /* ================================================================ AT THE STATION */
+  const ST = (T.station = { gus: null, crow: null, car: null, carState: 'away', carT: 20, carX: 150, snackDay: -1 });
+  { const oInit = G.EXT.init;
+    G.EXT.init = function (g) {
+      oInit(g);
+      if (G.Human) { const h = new G.Human('gus'); h.root.visible = false; g.scene.add(h.root); h.path = []; h.home = false; ST.gus = h; C().extraHumans.push(h); h.pos.set(188.4, 0, -1.2); h.yaw = -Math.PI / 2; }
+      if (C().crow) { const cr = C().crow.clone(); cr.position.set(172.2, 4.62, -6.6); cr.rotation.y = 0.8; cr.visible = false; g.scene.add(cr); ST.crow = cr; cr.userData.head = cr.children[1]; }
+      if (G.Kit && G.Kit.makeCar) { const car = G.Kit.makeCar(0x3f6f9e, false); car.visible = false; g.scene.add(car); ST.car = car; }
+      // the noticeboard with the family's photos, and the Weasel of the Month frame
+      const tex = G.Tex.make('gusBoard', 512, 320, (c2, w, h) => {
+        c2.fillStyle = '#b08a5a'; c2.fillRect(0, 0, w, h); c2.strokeStyle = '#5a3a1a'; c2.lineWidth = 14; c2.strokeRect(7, 7, w - 14, h - 14);
+        const photo = (x, y, rot, draw, cap) => { c2.save(); c2.translate(x, y); c2.rotate(rot); c2.fillStyle = '#f6f2ea'; c2.fillRect(-70, -58, 140, 124); c2.fillStyle = '#8ab0c8'; c2.fillRect(-60, -48, 120, 90); draw(); c2.fillStyle = '#2a1d15'; c2.font = '15px Georgia'; c2.textAlign = 'center'; c2.fillText(cap, 0, 58); c2.fillStyle = '#c0392b'; c2.beginPath(); c2.arc(0, -52, 6, 0, 7); c2.fill(); c2.restore(); };
+        const person = (x, y, s, col) => { c2.fillStyle = '#e8b894'; c2.beginPath(); c2.arc(x, y - 18 * s, 7 * s, 0, 7); c2.fill(); c2.fillStyle = col; c2.fillRect(x - 7 * s, y - 11 * s, 14 * s, 22 * s); };
+        photo(120, 120, -0.08, () => { c2.fillStyle = '#5a8fa8'; c2.fillRect(-50, 10, 100, 24); person(-20, 12, 1.2, '#f5a623'); person(18, 12, 1.5, '#3f8a74'); }, 'The family who came back!');
+        photo(300, 110, 0.06, () => { c2.fillStyle = '#c9a06a'; c2.beginPath(); c2.ellipse(0, 10, 34, 14, 0, 0, 7); c2.fill(); c2.fillStyle = '#f0dcc0'; c2.beginPath(); c2.arc(-28, 4, 9, 0, 7); c2.fill(); }, 'Found: one ferret');
+        photo(210, 230, 0.03, () => { person(0, 18, 1.6, '#3f6f9e'); c2.fillStyle = '#d2342a'; c2.fillRect(-10, -14, 20, 6); }, 'GUS (handsome)');
+        c2.fillStyle = '#2a1d15'; c2.font = 'bold 26px Georgia'; c2.textAlign = 'left'; c2.fillText('NOTICES', 380, 250); c2.font = '16px Georgia'; c2.fillText('Lost: lucky wrench.', 370, 276); c2.fillText('No weasels in the', 370, 294); c2.fillText('snack aisle. (Milo.)', 370, 310);
+      });
+      const board = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.62), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+      board.position.set(189.93, 1.65, -3.6); board.rotation.y = -Math.PI / 2; g.scene.add(board);
+      const wot = G.Tex.make('weaselMonth', 256, 300, (c2, w, h) => { c2.fillStyle = '#d4a347'; c2.fillRect(0, 0, w, h); c2.fillStyle = '#f6f2ea'; c2.fillRect(18, 18, w - 36, h - 36); c2.fillStyle = '#2a1d15'; c2.font = 'bold 22px Georgia'; c2.textAlign = 'center'; c2.fillText('WEASEL', w / 2, 52); c2.fillText('OF THE MONTH', w / 2, 78); c2.fillStyle = '#9ab8c8'; c2.fillRect(40, 94, w - 80, 150); c2.fillStyle = '#c9a06a'; c2.beginPath(); c2.ellipse(w / 2, 190, 56, 30, 0, 0, 7); c2.fill(); c2.fillStyle = '#f0dcc0'; c2.beginPath(); c2.arc(w / 2 - 40, 170, 18, 0, 7); c2.fill(); c2.fillStyle = '#2a1d15'; c2.beginPath(); c2.arc(w / 2 - 46, 166, 3, 0, 7); c2.fill(); c2.font = 'italic 17px Georgia'; c2.fillText('"Milo"', w / 2, 268); });
+      const frame = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.94), new THREE.MeshStandardMaterial({ map: wot, roughness: 0.7 }));
+      frame.position.set(189.93, 1.9, 4.8); frame.rotation.y = -Math.PI / 2; g.scene.add(frame);
+      // the snack rack outside the door
+      const rack = new THREE.Group(); rack.position.set(189.1, 0, 2.6); g.scene.add(rack);
+      const shelfM = M.std('rackMetal', { color: 0xc0392b, rough: 0.5, metal: 0.3 });
+      for (let i = 0; i < 3; i++) { const sh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 1.3), shelfM); sh.position.y = 0.3 + i * 0.4; rack.add(sh);
+        for (let k = 0; k < 4; k++) { const bag = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.2), M.std('crisps' + k, { color: [0x3f8a4a, 0xf2c14e, 0x3f6fa0, 0xd9573b][k], rough: 0.4 })); bag.position.set(0, 0.43 + i * 0.4, -0.45 + k * 0.3); rack.add(bag); } }
+      for (const z of [-0.62, 0.62]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.3, 0.05), shelfM); leg.position.set(0.2, 0.65, z); rack.add(leg); }
+      W.collider(188.85, 189.35, 1.95, 3.25, 0, 1.3, { cam: false }); g.hashC(W.colliders[W.colliders.length - 1]);
+      // a tarp over the ice-box corner: a new place to hide
+      const tarp = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.04, 1.5), M.std('tarp', { color: 0x3a6a8a, rough: 0.9, map: 'fabric' }));
+      tarp.position.set(189.3, 0.5, -10.8); tarp.rotation.x = 0.08; g.scene.add(tarp);
+      for (const z of [-11.5, -10.1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.46, 0.2), M.get('crate')); post.position.set(188.8, 0.23, z); g.scene.add(post); }
+      const tc = W.collider(188.6, 190, -11.5, -10.05, 0.46, 0.54, { walk: false, cam: false }); g.hashC(tc);
+      T.gusProps = [board, frame, rack, tarp];
+    }; }
+
+  /* Gus's routine: behind the counter door in the morning, out at the pumps
+     in the afternoon; home after nine at night */
+  const GUS_SPOTS = [[188.4, -1.2, -Math.PI / 2], [174.6, -5.6, 0], [181, 1, Math.PI], [163, 13, 0.4]];
+  const gusVisible = () => { if (!gusOpen()) return false; const t = S().time || 12; return t >= 6.5 && t < 21; };
+  SQ.tick((dt, s, st) => {
+    if (!G.game || !ST.gus) return;
+    const g = game(), h = ST.gus, pl = g.player;
+    // Corvin sits on the canopy whenever the station is open to visit
+    if (ST.crow) { ST.crow.visible = gusOpen() && pl.pos.x > 100; if (ST.crow.visible && ST.crow.userData.head) { ST.crow.userData.head.rotation.y = Math.sin(g.t * 1.5) * 0.6; } }
+    for (const m of T.gusProps || []) m.visible = has('tripDone');
+    if (h.chase) { h.update(dt, { lookY: h.lookY }); return; }
+    const vis = gusVisible() && !G.SEQ.running && Math.hypot(pl.pos.x - 180, pl.pos.z) < 160;
+    h.root.visible = vis;
+    if (!vis) return;
+    if (!h.spot) { h.spot = 0; h.wait = 4; }
+    const sp = GUS_SPOTS[h.spot];
+    if (h.talkLock > 0) { h.talkLock -= dt; h.speed = 0; h.pose = 'idle'; }
+    else if (h.wait > 0) { h.wait -= dt; h.pose = h.spot === 3 ? 'think' : 'idle'; h.yaw = U.dampAngle(h.yaw, sp[2], 3, dt); h.speed = U.damp(h.speed || 0, 0, 8, dt); if (h.wait <= 0) { h.spot = (h.spot + 1) % GUS_SPOTS.length; } }
+    else if (K().moveH(h, sp[0], sp[1], 1.2, dt)) h.wait = 8 + Math.random() * 8;
+    const d = Math.hypot(pl.pos.x - h.pos.x, pl.pos.z - h.pos.z);
+    h.lookY = d < 5 ? U.angDiff(h.yaw, Math.atan2(pl.pos.x - h.pos.x, pl.pos.z - h.pos.z)) : 0;
+    h.update(dt, { lookY: h.lookY, talking: UI().dialogueOpen && G.UI.history.length && G.UI.history[G.UI.history.length - 1].who === 'gus' });
+    ST.gusIt.pos[0] = h.pos.x; ST.gusIt.pos[1] = 0.2; ST.gusIt.pos[2] = h.pos.z;
+    // the tossed snack: once a day, when Milo comes near
+    const day = T.dayOf();
+    if (d < 3.5 && ST.snackDay !== day && has('gusVisitHello') && !UI().dialogueOpen && !g.busy) {
+      ST.snackDay = day; s.town = s.town || {}; s.town.gusSnackDay = day;
+      h.talkLock = 2.5; h.pose = 'wave'; A.play('pickup');
+      g.say([['gus', pick(['Heads up, weasel! Daily ration.', 'Here. Don’t tell the health inspector.', 'One pretzel. Just the one. I’m not made of pretzels.']), 'happy']], () => { g.give('treat'); });
+    }
+  });
+  SQ.onApply((s) => { s.town = s.town || {}; ST.snackDay = s.town.gusSnackDay ?? -1; if (ST.gus) { ST.gus.chase = null; ST.gus.spot = 0; ST.gus.pos.set(188.4, 0, -1.2); } });
+
+  /* ---- a car stops at the pumps now and then */
+  SQ.tick((dt, s, st) => {
+    const car = ST.car; if (!car || !G.game) return;
+    const on = gusOpen() && game().player.pos.x > 120;
+    if (!on) { car.visible = false; ST.carState = 'away'; return; }
+    ST.carT -= dt;
+    if (ST.carState === 'away' && ST.carT <= 0) { ST.carState = 'in'; ST.carX = 156; car.visible = true; }
+    else if (ST.carState === 'in') { ST.carX = U.damp(ST.carX, 171.4, 1.4, dt); if (ST.carX > 171) { ST.carState = 'fill'; ST.carT = 14; } }
+    else if (ST.carState === 'fill' && ST.carT <= 0) ST.carState = 'out';
+    else if (ST.carState === 'out') { ST.carX += dt * 5; if (ST.carX > 188) { ST.carState = 'away'; car.visible = false; ST.carT = 50 + Math.random() * 60; } }
+    if (car.visible) { car.position.set(ST.carX, 0, -5.4); car.rotation.y = Math.PI / 2; }
+  });
+
+  /* ---- talking to Gus */
+  function gusHello() {
+    if (has('gusVisitHello')) return;
+    game().flag('gusVisitHello');
+    const h = ST.gus; if (h) h.talkLock = 6;
+    game().say([
+      ['gus', 'Well, if it isn’t my weasel!', 'surprised'],
+      ['gus', 'Came up through the ground, did you? Like a little gopher. Ha!', 'happy'],
+      ['milo', '*Ferret. But hello, Gus!*', 'happy'],
+      ['gus', 'Don’t worry, I’m not calling anybody this time. Your family came back for you, fair and square. Stay as long as you like.', 'happy'],
+      ['gus', 'Just keep your paws off the snack rack. I mean it. Mostly.', 'think'],
+    ]);
+  }
+  Object.assign(G.QUESTS, {
+    gq_wrench: {
+      kind: 'Side quest', title: 'Gus’s Lucky Wrench', giver: 'Gus',
+      steps: { find: 'Find Gus’s lucky wrench: it fell into the box truck’s engine bay', ret: 'Give the wrench back to Gus' },
+      done: 'The wrench is back on its hook. Gus says the whole station feels luckier. So does Milo.',
+      target: (st) => (st === 'find' ? [163, 0, 19.6] : ST.gus ? [ST.gus.pos.x, 0, ST.gus.pos.z] : [188.4, 0, -1.2]),
+    },
+  });
+  G.PICKUPS.push({ id: 'p_wrench', item: 'luckywrench', model: 'gear', pos: [163.2, 0.04, 19.6], when: () => Q('gq_wrench') === 'find', msg: 'Up in the engine bay of the truck, wedged behind a hose: a heavy old wrench with GUS scratched on the handle.' });
+  function gusLines() {
+    const q = Q('gq_wrench');
+    if (!has('gusVisitHello')) { gusHello(); return null; }
+    if (!q) return [
+      ['gus', 'You look like a weasel who likes a job. Here’s one.', 'think'],
+      ['gus', 'My lucky wrench. Had it thirty years. I was fixing the truck and it slipped right down into the engine bay. My arm won’t go past the elbow.', 'sad'],
+      ['gus', 'But a little noodle like you, from underneath...', 'happy'],
+      { do: () => G.EXT.startQuest('gq_wrench', 'find') },
+    ];
+    if (q === 'find' && item('luckywrench')) return [
+      ['gus', 'THAT’S IT! That’s my wrench! Oh, you beautiful, slinky little mechanic.', 'happy'],
+      { do: () => { game().take('luckywrench'); G.EXT.setQuest('gq_wrench', 'done'); game().give('treat', 3); award('ach_wrench'); } },
+      ['gus', 'Three pretzels. And your picture stays on the wall another month. That’s the highest honour Highway 9 has.', 'happy'],
+    ];
+    if (q === 'find') return [['gus', 'Under the truck, up in the engine bay. Mind your whiskers on the hot bits.', 'think']];
+    return [['gus', pick([
+      'Corvin’s been up on my canopy all week. Says it’s got the best view of the traffic. Crows.',
+      'Your family sent me a postcard! From the SEASIDE. Got it on the board.',
+      'Wrench is on its hook. I tap it for luck every morning now.',
+      'Slow day. Two cars and a lost cow. You’re the most interesting thing that’s happened.',
+    ]), 'happy']];
+  }
+  ST.gusIt = { id: 'gus_talk', pos: [0, -999, 0], r: 1.3, label: 'Sniff Gus’s boots', anim: 'sniff',
+    when: () => !!ST.gus && ST.gus.root.visible && !ST.gus.chase && !C().chaser && !G.SEQ.running,
+    act: () => { const h = ST.gus; h.talkLock = 5; h.yaw = Math.atan2(game().player.pos.x - h.pos.x, game().player.pos.z - h.pos.z); const L = gusLines(); if (L) game().say(L); } };
+  add(ST.gusIt);
+
+  /* ---- Corvin on the canopy has new gossip */
+  add({ id: 'gus_corvin', pos: [172.2, 0.2, -6.6], r: 2.6, label: 'Caw back at Corvin', anim: 'sniff', when: () => gusOpen() && ST.crow && ST.crow.visible,
+    act: () => game().say([pick([
+      [['corvin', 'CAW! The noodle returns! Made it home in the end, did you? I TOLD you: west, through the corn.', 'smug'], ['corvin', 'I’ve moved up in the world. Canopy seat. Best view on Highway 9.', 'happy']],
+      [['corvin', 'Gossip, gossip. The gas man talks to his wrench. Out loud. Every morning.', 'think']],
+      [['corvin', 'There’s a mole under the fence who snores like a tractor. I can hear him from up HERE.', 'smug']],
+      [['corvin', 'Your squirrel friend with the enormous tail threw an acorn at me from a lorry. From a MOVING LORRY.', 'surprised']],
+    ])].flat()) });
+
+  /* ---- the snack rack, and the chase that follows */
+  { const def = {
+      title: '<b>Hey! Put that back!</b>', msg: 'Gus wants his crisps back. Hide under the box truck or the tarp by the ice box, or dive back into the tunnel!',
+      escaped: '"Where’d that weasel go? ...Fine. FINE. Salt and vinegar was the worst one anyway."', far: 16, speed: 2.6, direct: true, maxT: 30,
+      outOfArea: (pl) => !inLot(pl),
+      onEscaped: () => { const s = S(); s.town = s.town || {}; s.town.escaped_gus2 = (s.town.escaped_gus2 || 0) + 1; award('ach_escape_gus'); },
+      caught: async (h) => {
+        const k = K();
+        await k.talk([['gus', 'GOTCHA! Ha! Not so slippery on my own forecourt, are you?', 'happy']]);
+        h.pose = 'hug'; await k.wait(0.8);
+        await k.talk([['gus', '...Oh, go on. Keep the crisps. Just don’t tell anybody I’m a soft touch.', 'happy']]);
+        C().carried = null; k.putDown(h); h.pose = 'idle';
+      },
+    };
+    const reg = () => { C().chaseDefs.gussnack = def; };
+    const oInit = G.EXT.init; G.EXT.init = function (g) { oInit(g); reg(); }; }
+  add({ id: 'gus_steal', pos: [188.6, 0.3, 2.6], r: 1.0, label: 'Pinch a bag of crisps', anim: 'eat',
+    when: () => gusOpen() && ST.gus && ST.gus.root.visible && !C().chaser && has('gusVisitHello'),
+    act: () => { A.play('eat'); game().give('treat'); game().flag('stoleCrisps'); award('ach_crisps'); setTimeout(() => C().startChase(ST.gus, 'gussnack'), 500); } });
+
+  /* ================================================================ BURROW, MAP, ADMIN */
+  SQ.travelSpots.push(['station', 'Gus’s Gas & Snacks', [180.6, 0, 21.6], Math.PI]);
+  (G.AdminExtras = G.AdminExtras || []).push(({ group, close, toast }) => {
+    const add2 = group('Gus’s Gas & Snacks');
+    add2('Go to the station', () => { close(); if (!has('tripDone')) { game().flag('tripDone'); game().flag('tripDug'); game().applyWorldState(); } game().travel([180.6, 0, 21.6], Math.PI); });
+    add2('Maple Street grate', () => { close(); if (!has('tripDone')) { game().flag('tripDone'); game().flag('tripDug'); game().applyWorldState(); } game().travel([88.4, 0, 18.9], 0); });
+    add2('Into the long tunnel', () => { close(); if (!has('tripDone')) { game().flag('tripDone'); game().flag('tripDug'); game().applyWorldState(); } game().travel([152.4, UG, 46.1], Math.PI / 2); });
+  });
+  Object.assign(G.Town.names || {}, { dozer: 'Old Dozer' });
+  { const oInit = G.EXT.init; G.EXT.init = function (g) { oInit(g); G.NAMES.dozer = 'Old Dozer'; }; }
 })();
