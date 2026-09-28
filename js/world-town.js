@@ -223,24 +223,23 @@
   /* a hedge gap Milo can squeeze through: a low crawl-height opening */
   T.gaps = {};
   T.hedgeGap = function (H, x, z, o = {}) {
-    // widen an existing solid hedge by splitting the collider that covers this spot
+    // switch the solid collider off (the spatial hash keeps collider objects,
+    // so removing it from the array would leave it colliding) and replace it
+    // with two solid pieces either side and a low lintel over the gap
     const half = (o.w || 0.7) / 2, alongX = o.alongX !== false;
+    const add = (c) => { const k = Object.assign({}, c); delete k._cells; k.on = true; const i = W.colliders.push(k) - 1; if (G.game && G.game.hashC) G.game.hashC(k, i); return k; };
     for (let i = W.colliders.length - 1; i >= 0; i--) {
       const c = W.colliders[i];
-      if (c.y1 < 1 || c.y0 > 0.4) continue;
+      if (!c.on || c.y1 < 1 || c.y0 > 0.4) continue;
       if (alongX) { if (!(z > c.z0 - 0.9 && z < c.z1 + 0.9 && x > c.x0 && x < c.x1 && c.x1 - c.x0 > 1.6)) continue; }
       else { if (!(x > c.x0 - 0.9 && x < c.x1 + 0.9 && z > c.z0 && z < c.z1 && c.z1 - c.z0 > 1.6)) continue; }
-      const a = Object.assign({}, c), b = Object.assign({}, c);
-      if (alongX) { a.x1 = x - half; b.x0 = x + half; } else { a.z1 = z - half; b.z0 = z + half; }
-      W.colliders.splice(i, 1);
-      const keep = [];
-      if (alongX ? a.x1 > a.x0 + 0.05 : a.z1 > a.z0 + 0.05) keep.push(a);
-      if (alongX ? b.x1 > b.x0 + 0.05 : b.z1 > b.z0 + 0.05) keep.push(b);
-      for (const k of keep) { const idx = W.colliders.push(k) - 1; if (G.game && G.game.hashC) G.game.hashC(k, idx); }
-      // a low lintel so Milo has to crawl, not walk
-      const l = Object.assign({}, c);
-      if (alongX) { l.x0 = x - half; l.x1 = x + half; } else { l.z0 = z - half; l.z1 = z + half; }
-      l.y0 = (o.top || 0.42); const idx2 = W.colliders.push(l) - 1; if (G.game && G.game.hashC) G.game.hashC(l, idx2);
+      c.on = false;
+      const a = Object.assign({}, c), b = Object.assign({}, c), l = Object.assign({}, c);
+      if (alongX) { a.x1 = x - half; b.x0 = x + half; l.x0 = x - half; l.x1 = x + half; }
+      else { a.z1 = z - half; b.z0 = z + half; l.z0 = z - half; l.z1 = z + half; }
+      if (alongX ? a.x1 > a.x0 + 0.05 : a.z1 > a.z0 + 0.05) add(a);
+      if (alongX ? b.x1 > b.x0 + 0.05 : b.z1 > b.z0 + 0.05) add(b);
+      l.y0 = o.top || 0.42; add(l);
       break;
     }
     if (o.name) T.gaps[o.name] = { x, z, w: o.w || 0.7 };
@@ -344,8 +343,9 @@
         blArch: [10.5, 0, 66], blN: [10.5, 0, 78], blMid: [10.5, 0, 86], blW: [-20, 0, 86], blWW: [-31, 0, 86], blE: [30, 0, 86], blEE: [42, 0, 86],
         bl1: [-26, 0, 79], bl2: [-6, 0, 79], bl3: [30, 0, 79], bl4: [-22, 0, 95], bl5: [4, 0, 95], bl6: [30, 0, 95],
         blTree: [-22, 0, 93.5], blPool: [4, 0, 93.5], blHog: [-31, 0, 96],
+        blS1: [-10, 0, 104], blS2: [22, 0, 104],
       },
-      edges: 'pGate-blArch blArch-blN blN-blMid blMid-blW blW-blWW blMid-blE blE-blEE blN-bl2 bl1-blW bl2-blN bl3-blE blW-bl4 blMid-bl5 blE-bl6 bl4-blTree bl5-blPool blWW-blHog',
+      edges: 'pGate-blArch blArch-blN blN-blMid blMid-blW blW-blWW blMid-blE blE-blEE blN-bl2 bl1-blW bl2-blN bl3-blE blW-bl4 blMid-bl5 blE-bl6 bl4-blTree bl5-blPool blWW-blHog blMid-blS1 blMid-blS2',
     },
     build(ctx) {
       const { H, veg, gy } = ctx, root = ctx.root, rng = rngOf(8181);
@@ -452,7 +452,14 @@
       H.hedge(12.6, 66.8, BL.x1 - 1, 66.8, 1.5, 1.0, [[36, 37.4, 0.4]]);
       W.collider(35.9, 37.5, 66.2, 67.4, 0, 0.4, { name: 'blHedgeGap' });
       // the lane runs on east to the Town Square and west to the allotments
-      R.walls(BL.x0, BL.x1, BL.z0, BL.z1, 0, 4, { n: [[8.4, 12.6]], s: [], e: [[83, 90]], w: [[83, 90]] });
+      R.walls(BL.x0, BL.x1, BL.z0, BL.z1, 0, 4, { n: [[8.4, 12.6]], s: [[-12, -8], [20, 24]], e: [[83, 90]], w: [[83, 90]] });
+
+      /* ---- the two ways south: to the allotments and to the school */
+      R.path(ctx, [[-10, 90], [-10, 100], [-10, 107.6]], 1.3, grav());
+      R.path(ctx, [[22, 90], [22, 100], [22, 107.6]], 1.3, grav());
+      R.sign(ctx, -7.4, 104.6, 0, 'ALLOTMENTS', { w: 1.3, h: 1.2, bg: '#4a6a2a' });
+      R.sign(ctx, 24.6, 104.6, 0, 'SCHOOL', { w: 1.1, h: 1.2, bg: '#2f4f6a' });
+      for (let z = 92; z < 107; z += 1.4) { W.noGrass.push(['c', -10, z, 1.2], ['c', 22, z, 1.2]); }
 
       /* ---- a few trees along the verge, and bins */
       for (const [tx, tz, s, k] of [[-32, 70, 1.2, 'birch'], [-32, 104, 1.1, 'birch'], [40, 70, 1.2, 'birch'], [40, 104, 1, 'oak'], [18, 70, 1, 'birch'], [-14, 105, 1.1, 'oak']]) veg.trees.push([tx, tz, s, k]);
@@ -661,7 +668,7 @@
       }
 
       /* ---- boundary: open west to Birch Lane, south to the school lane */
-      R.walls(TS.x0, TS.x1, TS.z0, TS.z1, 0, 6, { w: [[83, 90]], s: [[62, 70]], n: [], e: [] });
+      R.walls(TS.x0, TS.x1, TS.z0, TS.z1, 0, 6, { w: [[83, 90]], s: [[62, 70]], n: [[69.4, 70.6]], e: [] });
       /* a hedge gap north into the old town, behind the corner shop */
       T.hedgeGap(H, 70, 64, { w: 0.8, top: 0.44, alongX: true, name: 'townHedgeGap' });
       R.sign(ctx, 68.4, 68.6, Math.PI, 'TOWN SQUARE', { w: 1.6, h: 1.4, bg: '#2f4f3a' });
@@ -834,6 +841,7 @@
     button: ['A brass button', 'Off a coat, a long time ago. It still shines if you rub it.'],
     coin: ['A lost coin', 'Dropped outside the bakery, probably. Milo will keep it safe.'],
   };
+  T.dig = (d) => townDig(d);
   function townDig(d) {
     const g = game();
     g.player.act('dig', 1.5, { lockMove: true }); A.play('dig');
@@ -845,8 +853,8 @@
       if (T.mounds[d.id]) T.mounds[d.id].visible = false;
       if (d.loot === 'treat') g.give('treat');
       else { const [t, sub] = DIG_LOOT[d.loot]; A.play('pickup'); UI().toast(`<b>${t}</b>`, null, sub); }
-      const n = TOWN_DIGS.filter((x) => (s.dug || {})[x.id]).length;
-      if (n === TOWN_DIGS.length) UI().toast('<b>Town digger</b>', null, 'Every soft spot in the new streets, thoroughly investigated.');
+      const n = T.digs.filter((x) => (s.dug || {})[x.id]).length;
+      if (n === T.digs.length) UI().toast('<b>Town digger</b>', null, 'Every soft spot in the new streets, thoroughly investigated.');
       if (G.Extras && G.Extras.check) G.Extras.check();
     }, 1500);
   }
@@ -1128,4 +1136,1083 @@
   BUS.at = [120, 0.4, 93.2]; // mutated each tick: G.INTERACT reads the array in place
   add({ id: 'tw_busride', pos: BUS.at, r: 2.6, label: 'Peer into the bus', anim: 'sniff',
     when: () => BUS.state === 'stopped', act: () => game().say([['milo', '*Warm, rumbly, and it smells of wet coats. One day, Milo. One day you ride the No. 4.*', 'happy']]) });
+})();
+
+/* =====================================================================
+   world-town.js (part three) - the Allotments, the School and the Canal.
+   ===================================================================== */
+(function () {
+  const U = G.U, M = G.Mat, A = G.Audio, W = G.World, UG = W.UG, R = G.Regions, SQ = G.SQ, T = G.Town;
+  const game = () => G.game, S = () => G.game.S;
+  const grav = () => M.std('gravel', { map: 'dirt', color: 0xd8c8a8, rough: 1 });
+  const paving = () => M.std('paving', { map: 'sidewalk', color: 0xd4cec2, rough: 0.9 });
+  const rngOf = (seed) => U.rng(seed);
+
+  /* ================================================================ THE ALLOTMENTS
+     Vegetable plots, sheds, a greenhouse, compost heaps, a scarecrow, and
+     a railway embankment along the south with a level crossing. */
+  const AL = { x0: -54, x1: 2, z0: 108, z1: 152 };
+  const RAIL_Z = 142, CROSS_X = -26;
+  R.def({
+    id: 'allot', name: 'The Allotments', bounds: [AL.x0, AL.x1, AL.z0, AL.z1], preload: 22,
+    areas: [
+      ['alShed', 'The Big Shed', -52, -46, 120.5, 126.5, { indoor: true, zone: 'garden', surf: 'wood', dim: 0.5 }],
+      ['alGlass', 'The Greenhouse', -12, -2, 121, 129, { indoor: true, zone: 'garden', surf: 'stone' }],
+      ['alRail', 'The Railway Embankment', -54, 2, 137, 147, { zone: 'town', surf: 'stone' }],
+      ['allotments', 'The Allotments', -54, 2, 108, 152, { zone: 'garden', surf: 'soil' }],
+    ],
+    /* the layout: one path east-west along z 118, one path south along
+       x -26 to the level crossing, and plots and buildings in the blocks */
+    nav: {
+      nodes: {
+        alIn: [-10, 0, 110], alX: [-10, 0, 118], alMid: [-26, 0, 118], alW: [-43.5, 0, 118],
+        alShedDoor: [-45, 0, 123.5], alShedIn: [-49, 0, 123.5], alGlassDoor: [-7, 0, 119.6], alGlassIn: [-7, 0, 124.5],
+        alCompost: [-43.5, 0, 132], alS: [-26, 0, 135.4], alScare: [-8.6, 0, 135.4],
+        alCross: [CROSS_X, 0, 142], alSouth: [CROSS_X, 0, 150],
+      },
+      edges: 'blS1-alIn alIn-alX alX-alMid alMid-alW alW-alShedDoor alShedDoor-alShedIn alX-alGlassDoor alGlassDoor-alGlassIn alW-alCompost alMid-alS alS-alCross alCross-alSouth alS-alScare',
+    },
+    build(ctx) {
+      const { H, veg } = ctx, root = ctx.root, rng = rngOf(3131);
+      /* ---- soil, and the gravel paths */
+      H.plane(AL.x0 + 2, AL.x1 - 2, 110, 137, 0.008, M.std('allotSoil', { map: 'soil', color: 0x7a6247, rough: 1 }), 4);
+      W.noGrass.push([AL.x0, AL.x1, 110, 148, 1]);
+      R.path(ctx, [[-10, 108], [-10, 118]], 1.4, grav());
+      R.path(ctx, [[-52, 118], [-2, 118]], 1.6, grav());
+      R.path(ctx, [[-26, 118], [-26, 138]], 1.6, grav());
+      R.path(ctx, [[-26, 135.4], [-4, 135.4]], 1.0, grav());
+      /* ---- the plots, each with its own crop */
+      const CROPS = [
+        { c: 0x6a9a4a, h: 0.4, n: 14 }, { c: 0x9aa84a, h: 0.28, n: 18 }, { c: 0x4a8a5a, h: 0.55, n: 10 },
+        { c: 0xc06a3a, h: 0.34, n: 12 }, { c: 0x7aba5a, h: 0.22, n: 22 }, { c: 0x5a7a3a, h: 0.48, n: 12 },
+      ];
+      const PLOTS = [
+        [-46, 113.6, 8, 5], [-34.5, 113.6, 8, 5], [-19, 113.6, 7, 5], [-3.8, 113.6, 5.6, 5],   // north of the path
+        [-36.5, 123, 8, 5], [-36.5, 131, 8, 5], [-19, 123, 7, 5], [-19, 131, 7, 5],           // south of the path
+      ];
+      PLOTS.forEach(([px, pz, pw, pd], k) => {
+        const cr = CROPS[k % CROPS.length];
+        for (const [ex, ez, ew, ed] of [[px, pz - pd / 2, pw, 0.12], [px, pz + pd / 2, pw, 0.12], [px - pw / 2, pz, 0.12, pd], [px + pw / 2, pz, 0.12, pd]])
+          H.box({ w: ew, h: 0.18, d: ed, x: ex, y: 0, z: ez, mat: M.std('bedwood', { color: 0x7a5a3a, rough: 0.9, map: 'shedwood' }), climb: true });
+        for (let i = 0; i < cr.n; i++) veg.bushes.push([px + (rng() - 0.5) * (pw - 0.8), cr.h * (0.7 + rng() * 0.6), pz + (rng() - 0.5) * (pd - 0.6), 0.22 + rng() * 0.14, cr.c, false]);
+        // bean canes on every third plot
+        if (k % 3 === 2) for (let i = 0; i < 4; i++) {
+          const cx = px - pw / 2 + 1.2 + i * ((pw - 2.4) / 3);
+          for (const s of [-1, 1]) H.cyl({ r: 0.02, h: 1.7, x: cx + s * 0.3, y: 0, z: pz + s * 0.5, mat: 'darkwood', col: false, rz: -s * 0.18 });
+          H.cyl({ r: 0.015, h: 1.5, x: cx, y: 1.55, z: pz, mat: 'darkwood', col: false, rz: Math.PI / 2 });
+        }
+        if (k % 2) H.cyl({ r: 0.12, h: 0.22, x: px + pw / 2 - 0.5, z: pz - pd / 2 + 0.5, mat: M.std('canGalv', { color: 0x9aa0a8, rough: 0.4, metal: 0.5 }), col: true });
+      });
+      /* ---- the big shed, door facing east (the Bramblings live underneath) */
+      { const sx0 = -52, sx1 = -46, sz0 = 120.5, sz1 = 126.5;
+        H.wall(sx0, sz0, sx1, sz0, 2.3, 0.14, 'shedwood', 'shedwood', [], { s: 1.5, edge: 'shedwood' });
+        H.wall(sx0, sz1, sx1, sz1, 2.3, 0.14, 'shedwood', 'shedwood', [], { s: 1.5, edge: 'shedwood' });
+        H.wall(sx0, sz0, sx0, sz1, 2.3, 0.14, 'shedwood', 'shedwood', [], { s: 1.5, edge: 'shedwood' });
+        H.wall(sx1, sz0, sx1, sz1, 2.3, 0.14, 'shedwood', 'shedwood', [[122.9, 124.1, 2]], { s: 1.5, edge: 'shedwood' });
+        H.roofPrism(-49, 123.5, 6.4, 6.4, 2.3, 1.1, true, M.std('mossroof', { map: 'shingles', color: 0x7a8a6a }), M.get('shedwood'));
+        H.plane(sx0, sx1, sz0, sz1, 0.02, 'planks', 1.6);
+        const c = H.plane(sx0, sx1, sz0, sz1, 2.3, 'shedwood', 2); c.rotation.x = Math.PI; c.position.y = 2.3;
+        // tools on the back wall, and a potting bench
+        for (let i = 0; i < 4; i++) H.box({ w: 0.08, h: 1.5, d: 0.08, x: -51.6, y: 0.02, z: 121.4 + i * 0.3, mat: 'darkwood', col: false, rz: 0.08 });
+        H.box({ w: 0.5, h: 0.06, d: 1.6, x: -51.5, y: 0.9, z: 125, mat: 'midwood', climb: true, colY0: -0.9 });
+        // the hedgehogs' gap under the north wall
+        const hole = new THREE.Mesh(new THREE.CircleGeometry(0.22, 12, 0, Math.PI), M.color(0x100b08, 1));
+        hole.position.set(-49, 0.01, 120.4); hole.rotation.y = Math.PI; root.add(hole);
+      }
+      /* ---- the greenhouse, door facing the path */
+      { const gx0 = -12, gx1 = -2, gz0 = 121, gz1 = 129;
+        const glass = M.std('ghGlass2', { color: 0xcfe4e0, rough: 0.1, metal: 0.05, transparent: true, opacity: 0.32, envI: 1.4 });
+        for (const [wx0, wz0, wx1, wz1, gaps] of [[gx0, gz0, gx1, gz0, [[-7.7, -6.3, 1.9]]], [gx0, gz1, gx1, gz1, []], [gx0, gz0, gx0, gz1, []], [gx1, gz0, gx1, gz1, []]])
+          H.wall(wx0, wz0, wx1, wz1, 2.0, 0.08, glass, glass, gaps, { s: 1.4, edge: 'whitewood' });
+        H.roofPrism(-7, 125, 10, 8, 2.0, 0.7, true, glass, glass);
+        H.plane(gx0, gx1, gz0, gz1, 0.02, M.std('ghFloor2', { map: 'stone', color: 0xbdb5a6, rough: 0.95 }), 1.4);
+        // staging along the east and west walls, tomatoes down the middle
+        for (const bx of [-11.2, -2.8]) {
+          H.box({ w: 1.1, h: 0.06, d: 7, x: bx, y: 0.75, z: 125, mat: 'midwood', climb: true, colY0: -0.75 });
+          for (let i = 0; i < 6; i++) {
+            H.box({ w: 0.3, h: 0.12, d: 0.42, x: bx, y: 0.81, z: 122.2 + i * 1.1, mat: M.std('seedtray', { color: 0x6a4a3a, rough: 0.9 }), col: false });
+            veg.bushes.push([bx, 1.02, 122.2 + i * 1.1, 0.16, 0x6a9a4a, false]);
+          }
+        }
+        for (let i = 0; i < 4; i++) { const tz = 123 + i * 1.7; H.cyl({ r: 0.02, h: 1.4, x: -7, y: 0, z: tz, mat: 'darkwood', col: false });
+          for (let k = 0; k < 3; k++) veg.bushes.push([-7 + (rng() - 0.5) * 0.3, 0.4 + k * 0.4, tz + (rng() - 0.5) * 0.3, 0.2, 0x4a7a3a, false]);
+          for (let k = 0; k < 2; k++) veg.flowers.push([-7 + (rng() - 0.5) * 0.4, tz + (rng() - 0.5) * 0.3, 0xd9412f]); }
+        H.light(-7, 1.7, 125, 0xffe0a8, 0.5, 6, { night: true });
+      }
+      /* ---- compost bays, water butts and a wheelbarrow */
+      for (const [cx, cz] of [[-48.6, 131], [-48.6, 134.6]]) {
+        for (const [ex, ez, ew, ed] of [[cx, cz - 1.5, 2.6, 0.12], [cx, cz + 1.5, 2.6, 0.12], [cx - 1.3, cz, 0.12, 3], [cx + 1.3, cz, 0.12, 3]])
+          H.box({ w: ew, h: 0.7, d: ed, x: ex, y: 0, z: ez, mat: 'shedwood', climb: true });
+        H.sph({ x: cx, y: 0.34, z: cz, r: 1.1, sy: 0.42, sz: 1.2, mat: M.std('compost', { map: 'soil', color: 0x4a3a2a, rough: 1 }) });
+      }
+      for (const [bx, bz] of [[-44.6, 121.4], [-13.4, 120.2]]) {
+        H.cyl({ r: 0.5, h: 1.2, x: bx, z: bz, mat: M.std('waterButt', { color: 0x3a5a4a, rough: 0.6 }), col: true, seg: 14 });
+        H.cyl({ r: 0.46, h: 0.03, x: bx, y: 1.18, z: bz, mat: 'water', col: false, seg: 14 });
+      }
+      { const wb = new THREE.Group(); wb.position.set(-29.6, 0, 127); root.add(wb);
+        const tray = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.26, 1.1), M.std('barrowTray', { color: 0x4a7a9a, rough: 0.5, metal: 0.3 }));
+        tray.position.y = 0.42; tray.castShadow = true; wb.add(tray);
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.08, 12), M.std('barrowTyre', { color: 0x2a2a2e, rough: 0.9 }));
+        wheel.rotation.z = Math.PI / 2; wheel.position.set(0, 0.2, 0.68); wb.add(wheel);
+        for (const s of [-1, 1]) { const hd = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 6), M.get('midwood')); hd.rotation.x = Math.PI / 2 + 0.12; hd.position.set(s * 0.28, 0.4, -0.5); wb.add(hd); }
+        wb.traverse((m) => (m.userData.dynamic = true));
+        // high enough off the ground for Milo to hide underneath
+        W.collider(-30, -29.2, 126.2, 127.8, 0.32, 0.55, { walk: true, cam: false }); }
+      /* ---- the scarecrow, in its own patch by the southern path */
+      { const sx = -6, sz = 133;
+        for (let i = 0; i < 18; i++) veg.bushes.push([sx + (rng() - 0.5) * 4, 0.3 + rng() * 0.2, sz + (rng() - 0.5) * 2.4, 0.2 + rng() * 0.1, 0xc9a13a, false]);
+        H.cyl({ r: 0.05, h: 1.9, x: sx, z: sz, mat: 'darkwood', col: true });
+        H.box({ w: 1.5, h: 0.07, d: 0.07, x: sx, y: 1.45, z: sz, mat: 'darkwood', col: false });
+        const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.8, 0.3), M.std('scareShirt', { color: 0xb04a3a, rough: 0.95, map: 'fabric' }));
+        shirt.position.set(sx, 1.2, sz); shirt.castShadow = true; root.add(shirt);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 9), M.std('scareHead', { color: 0xd9c08a, rough: 0.95, map: 'fabric' }));
+        head.position.set(sx, 1.78, sz); head.castShadow = true; root.add(head);
+        const hat = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.26, 10), M.std('scareHat', { color: 0x8a6a3a, rough: 0.9 }));
+        hat.position.set(sx, 1.96, sz); hat.castShadow = true; root.add(hat);
+        for (const s of [-1, 1]) { const st = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 5), M.std('straw', { color: 0xd9bc72, rough: 1 })); st.position.set(sx + s * 0.16, 1.66, sz + 0.06); st.rotation.z = s * 0.7; root.add(st); }
+        // a heap of loose straw at his feet (where a hoglet might hide)
+        H.sph({ x: sx - 0.8, y: 0.1, z: sz + 0.8, r: 0.45, sy: 0.35, mat: M.std('straw', { color: 0xd9bc72, rough: 1 }) });
+        T.scarecrow = [sx, sz];
+      }
+      /* ---- the railway embankment along the south, with a level crossing */
+      { const bz0 = RAIL_Z - 3.2, bz1 = RAIL_Z + 3.2;
+        H.plane(AL.x0, AL.x1, bz0, bz1, 0.3, M.std('ballast', { map: 'stone', color: 0x8a8378, rough: 1 }), 2.2);
+        // the ballast is a hop up anywhere except at the crossing, which has ramps
+        W.collider(AL.x0, CROSS_X - 2.2, bz0, bz1, 0, 0.3, { climb: true, cam: false });
+        W.collider(CROSS_X + 2.2, AL.x1, bz0, bz1, 0, 0.3, { climb: true, cam: false });
+        // sleepers and two rails
+        for (let x = AL.x0; x < AL.x1; x += 0.8)
+          H.box({ w: 0.34, h: 0.08, d: 2.3, x, y: 0.3, z: RAIL_Z, mat: M.std('sleeper', { color: 0x4a3a2c, rough: 0.95, map: 'shedwood' }), col: false, cast: false });
+        for (const s of [-1, 1])
+          H.box({ w: AL.x1 - AL.x0, h: 0.1, d: 0.09, x: (AL.x0 + AL.x1) / 2, y: 0.38, z: RAIL_Z + s * 0.72, mat: M.std('railSteel', { color: 0xa8a29a, rough: 0.28, metal: 0.85 }), col: false, cast: false });
+        // lineside fence, with the crossing left open
+        for (const fz of [bz0 - 0.4, bz1 + 0.4])
+          T.props.picket(H, AL.x0 + 1, fz, AL.x1 - 1, fz, { h: 0.9, color: 0x8a8a84, gaps: [[CROSS_X - 2.2, CROSS_X + 2.2]] });
+        // the crossing deck
+        H.plane(CROSS_X - 2.2, CROSS_X + 2.2, bz0, bz1, 0.42, 'planks', 1.4);
+        W.collider(CROSS_X - 2.2, CROSS_X + 2.2, bz0, bz1, 0, 0.42, { cam: false });
+        R.ramp(ctx, CROSS_X, bz0 - 1.4, 0.02, CROSS_X, bz0, 0.42, 4.4, 'planks');
+        R.ramp(ctx, CROSS_X, bz1, 0.42, CROSS_X, bz1 + 1.4, 0.02, 4.4, 'planks');
+        R.path(ctx, [[CROSS_X, bz1], [CROSS_X, 150]], 1.4, grav());
+        // the flashing light and its bell post, one each side
+        T.crossLights = [];
+        for (const s of [-1, 1]) {
+          const px = CROSS_X + s * 2.8, pz = RAIL_Z - s * 4.4;
+          H.cyl({ r: 0.07, h: 2.2, x: px, z: pz, mat: M.std('crossPost', { color: 0xf2ece0, rough: 0.7 }), col: true });
+          const X = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.14, 0.05), M.std('crossX', { color: 0xf2ece0, rough: 0.7 }));
+          X.position.set(px, 2.36, pz); X.rotation.z = 0.7; root.add(X);
+          const X2 = X.clone(); X2.rotation.z = -0.7; root.add(X2);
+          for (const ls of [-1, 1]) {
+            const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), M.std('crossLampOff', { color: 0x6a2a24, rough: 0.5 }));
+            lamp.position.set(px + ls * 0.26, 2.0, pz + 0.08); lamp.userData.dynamic = true; root.add(lamp);
+            T.crossLights.push({ m: lamp, side: ls });
+          }
+        }
+        T.crossing = [CROSS_X, RAIL_Z];
+      }
+      /* ---- greenery round the edges */
+      veg.grass.push([AL.x0 + 2, AL.x1 - 2, 108, 112, 1], [AL.x0 + 2, AL.x1 - 2, 147, 151, 1.2]);
+      for (const [tx, tz, s] of [[-52, 112, 1.2], [-52, 148, 1.1], [0, 150, 1], [-50, 128, 0.9]]) veg.trees.push([tx, tz, s, 'oak']);
+      for (let i = 0; i < 30; i++) veg.ferns.push([AL.x0 + 2 + rng() * 52, 147.5 + rng() * 3.5, 0.6 + rng() * 0.5, 'tall']);
+      R.sign(ctx, -7.6, 110.6, Math.PI, 'THE ALLOTMENTS', { w: 1.6, h: 1.3, bg: '#4a6a2a' });
+      /* ---- open north to Birch Lane, south over the crossing to the canal */
+      R.walls(AL.x0, AL.x1, AL.z0, AL.z1, 0, 5, { n: [[-12, -8]], s: [[CROSS_X - 2.2, CROSS_X + 2.2]], e: [], w: [] });
+    },
+  });
+  T.regions.allot = R.byId.allot;
+
+  /* ================================================================ THE SCHOOL
+     Larkspur Primary: a playground with swings, a slide, a climbing frame
+     and a sandpit, and a bell that rings out the school day. */
+  const SC = { x0: 2, x1: 60, z0: 108, z1: 152 };
+  R.def({
+    id: 'school', name: 'The School', bounds: [SC.x0, SC.x1, SC.z0, SC.z1], preload: 22,
+    areas: [
+      ['scHall', 'Larkspur Primary', 30, 52, 112, 124, { indoor: true, zone: 'house2', surf: 'wood' }],
+      ['scPlay', 'The Playground', 6, 28, 118, 140, { zone: 'town', surf: 'stone' }],
+      ['scSand', 'The Sandpit', 8, 14, 132, 138, { zone: 'town', surf: 'sand' }],
+      ['school', 'Larkspur Primary', 2, 60, 108, 152, { zone: 'town', surf: 'grass' }],
+    ],
+    nav: {
+      nodes: {
+        scIn: [22, 0, 109], scGate: [22, 0, 116], scYard: [18, 0, 126], scSwing: [10, 0, 122], scFrame: [22, 0, 134],
+        scSand: [11, 0, 135], scDoor: [40, 0, 125], scHallIn: [40, 0, 118], scField: [44, 0, 142], scSouth: [30, 0, 150],
+      },
+      edges: 'blS2-scIn scIn-scGate scGate-scYard scYard-scSwing scYard-scFrame scYard-scSand scGate-scDoor scDoor-scHallIn scYard-scField scField-scSouth',
+    },
+    build(ctx) {
+      const { H, veg } = ctx, root = ctx.root, rng = rngOf(4242);
+      /* ---- the playground tarmac and the playing field */
+      H.plane(6, 28, 118, 140, 0.01, M.std('playTarmac', { map: 'asphalt', color: 0x8a8580, rough: 0.9 }), 5);
+      W.noGrass.push([4, 30, 116, 142, 1], [28, 56, 110, 128, 1]);
+      R.path(ctx, [[22, 108], [22, 116], [20, 122], [18, 126]], 1.6, paving());
+      R.path(ctx, [[22, 116], [32, 120], [40, 124]], 1.4, paving());
+      veg.grass.push([30, 58, 128, 150, 1.3], [4, 28, 142, 150, 1.2]);
+      /* ---- painted markings: a hopscotch grid and a running track ring */
+      { const paint = M.std('playPaint', { color: 0xf2e6c0, rough: 0.9 });
+        for (let i = 0; i < 6; i++) H.box({ w: 0.9, h: 0.008, d: 0.9, x: 24.6, y: 0.02, z: 120 + i * 1, mat: paint, col: false, cast: false });
+        for (let i = 0; i < 28; i++) { const a = (i / 28) * 6.283; H.box({ w: 0.5, h: 0.008, d: 0.12, x: 17 + Math.cos(a) * 7, y: 0.02, z: 130 + Math.sin(a) * 7, mat: paint, ry: -a, col: false, cast: false }); } }
+      /* ---- the school building */
+      { const bx0 = 30, bx1 = 52, bz0 = 112, bz1 = 124;
+        const brick = M.std('schoolBrick', { map: 'brick', color: 0xc9a08a, rough: 0.9 });
+        H.wall(bx0, bz0, bx1, bz0, 4.2, 0.26, brick, brick, [], { s: 2.4, edge: brick });
+        H.wall(bx0, bz1, bx1, bz1, 4.2, 0.26, brick, brick, [[38.8, 41.2, 2.4]], { s: 2.4, edge: brick });
+        H.wall(bx0, bz0, bx0, bz1, 4.2, 0.26, brick, brick, [], { s: 2.4, edge: brick });
+        H.wall(bx1, bz0, bx1, bz1, 4.2, 0.26, brick, brick, [], { s: 2.4, edge: brick });
+        H.roofPrism(41, 118, 22, 12, 4.2, 2.2, true, M.get('shingles'), M.get('shingles'));
+        W.collider(bx0, bx1, bz0, bz1, 0, 4.2, { cam: false });
+        H.plane(bx0, bx1, bz0, bz1, 0.02, 'planks', 2);
+        // tall classroom windows
+        for (let i = 0; i < 5; i++) {
+          H.windowAt(32.5 + i * 4.2, 1.9, bz1 - 0.02, Math.PI, 1.5, 1.9, { sill: true });
+          T.litWindows.push({ x: 32.5 + i * 4.2, y: 1.9, z: bz1 + 0.5, night: false });
+        }
+        // the door, a step, and a painted name board
+        H.box({ w: 2.4, h: 2.4, d: 0.08, x: 40, y: 0, z: bz1 + 0.13, mat: M.std('schoolDoor', { color: 0x2f5f4a, rough: 0.5, map: 'paintwood' }), col: false });
+        H.box({ w: 3, h: 0.14, d: 0.7, x: 40, y: 0, z: bz1 + 0.5, mat: 'stone', climb: true });
+        R.sign(ctx, 44.6, bz1 + 0.3, Math.PI, 'LARKSPUR PRIMARY', { w: 2.2, h: 2.6, bg: '#2f4f6a' });
+        // the bell in a little gable housing
+        { const bh = new THREE.Group(); bh.position.set(41, 6.5, 118); root.add(bh);
+          const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 0.36, 12, 1, true), M.get('brass'));
+          bell.position.y = -0.2; bh.add(bell);
+          for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 6), M.get('darkwood')); p.position.set(s * 0.34, 0, 0); bh.add(p); }
+          const top = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.3), M.get('darkwood')); top.position.y = 0.4; bh.add(top);
+          bh.traverse((m) => { m.castShadow = true; m.userData.dynamic = true; });
+          T.schoolBell = [41, 118]; }
+      }
+      /* ---- the swings */
+      { const sx = 10, sz = 122;
+        for (const s of [-1, 1]) for (const d of [-1, 1])
+          H.cyl({ r: 0.06, h: 2.5, x: sx + s * 2.2, z: sz + d * 0.8, mat: M.std('frameSteel', { color: 0x3a6a8a, rough: 0.4, metal: 0.5 }), col: true, rz: -s * 0.28 });
+        H.box({ w: 4.8, h: 0.1, d: 0.1, x: sx, y: 2.42, z: sz, mat: M.std('frameSteel', { color: 0x3a6a8a, rough: 0.4, metal: 0.5 }), col: false });
+        T.swings = [];
+        for (const ox of [-1.3, 1.3]) {
+          const sw = new THREE.Group(); sw.position.set(sx + ox, 2.42, sz); root.add(sw);
+          for (const s of [-1, 1]) { const ch2 = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.7, 5), M.get('chrome')); ch2.position.set(s * 0.22, -0.85, 0); sw.add(ch2); }
+          const seat = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.05, 0.2), M.std('swingSeat', { color: 0x2a2a2e, rough: 0.8 }));
+          seat.position.y = -1.7; seat.castShadow = true; sw.add(seat);
+          sw.traverse((m) => (m.userData.dynamic = true));
+          T.swings.push({ g: sw, ph: ox });
+        }
+      }
+      /* ---- the slide: steps up, a shiny chute down */
+      { const lx = 25, lz = 122;
+        for (let i = 0; i < 7; i++) H.box({ w: 0.8, h: 0.05, d: 0.26, x: lx, y: 0.34 + i * 0.28, z: lz + 1.4 - i * 0.22, mat: M.std('frameSteel', { color: 0x3a6a8a, rough: 0.4, metal: 0.5 }), climb: true });
+        H.plane(lx - 0.45, lx + 0.45, lz - 0.3, lz + 0.1, 2.3, M.get('metal'), 1);
+        W.collider(lx - 0.45, lx + 0.45, lz - 0.3, lz + 0.1, 2.06, 2.3, { cam: false, name: 'slideTop' });
+        for (const s of [-1, 1]) H.cyl({ r: 0.05, h: 2.3, x: lx + s * 0.45, z: lz + 0.1, mat: M.std('frameSteel', { color: 0x3a6a8a, rough: 0.4, metal: 0.5 }), col: true });
+        // the chute, sloping north
+        const chute = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.06, 3.6), M.std('slideChute', { color: 0xd9d4c8, rough: 0.16, metal: 0.65 }));
+        chute.position.set(lx, 1.32, lz - 2.1); chute.rotation.x = 0.52; chute.castShadow = true; root.add(chute);
+        R.ramp(ctx, lx, lz - 0.4, 2.2, lx, lz - 3.8, 0.1, 0.85, 'metal', { noVis: true });
+        for (const s of [-1, 1]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 3.6), M.std('slideChute', { color: 0xd9d4c8, rough: 0.16, metal: 0.65 })); rail.position.set(lx + s * 0.44, 1.42, lz - 2.1); rail.rotation.x = 0.52; root.add(rail); }
+        T.slide = [lx, lz];
+      }
+      /* ---- the climbing frame: a cube of bars Milo can actually climb */
+      { const fx = 22, fz = 134, s = 2.4, steel = M.std('frameSteel', { color: 0x3a6a8a, rough: 0.4, metal: 0.5 });
+        for (const dx of [-1, 1]) for (const dz of [-1, 1]) H.cyl({ r: 0.055, h: 2.6, x: fx + dx * s, z: fz + dz * s, mat: steel, col: true, climb: true });
+        for (const y of [0.85, 1.7, 2.55]) {
+          for (const dz of [-1, 1]) { H.box({ w: s * 2, h: 0.07, d: 0.07, x: fx, y, z: fz + dz * s, mat: steel, col: false }); W.collider(fx - s, fx + s, fz + dz * s - 0.12, fz + dz * s + 0.12, y - 0.1, y, { climb: true, cam: false }); }
+          for (const dx of [-1, 1]) { H.box({ w: 0.07, h: 0.07, d: s * 2, x: fx + dx * s, y, z: fz, mat: steel, col: false }); W.collider(fx + dx * s - 0.12, fx + dx * s + 0.12, fz - s, fz + s, y - 0.1, y, { climb: true, cam: false }); }
+        }
+        // a plank deck across the top so there is somewhere to sit
+        H.plane(fx - s, fx + s, fz - 0.9, fz + 0.9, 2.62, 'planks', 1.2);
+        W.collider(fx - s, fx + s, fz - 0.9, fz + 0.9, 2.4, 2.62, { cam: false, name: 'frameTop' });
+        T.climbFrame = [fx, fz];
+      }
+      /* ---- the sandpit */
+      { const px = 11, pz = 135;
+        H.plane(px - 3, px + 3, pz - 3, pz + 3, 0.06, M.std('playSand', { map: 'grass', color: 0xe0cf9a, rough: 1 }), 2);
+        for (const [ex, ez, ew, ed] of [[px, pz - 3, 6.4, 0.24], [px, pz + 3, 6.4, 0.24], [px - 3, pz, 0.24, 6.4], [px + 3, pz, 0.24, 6.4]])
+          H.box({ w: ew, h: 0.26, d: ed, x: ex, y: 0, z: ez, mat: 'midwood', climb: true });
+        // a bucket, a spade and a half-finished castle
+        H.cyl({ r: 0.16, rt: 0.2, h: 0.24, x: px + 1.4, y: 0.06, z: pz - 1, mat: M.std('sandBucket', { color: 0xd9573b, rough: 0.5 }), col: true });
+        H.box({ w: 0.05, h: 0.5, d: 0.14, x: px - 1.2, y: 0.06, z: pz + 0.8, mat: M.std('sandSpade', { color: 0x3f6fa0, rough: 0.5 }), col: false, rz: 0.4 });
+        for (let i = 0; i < 3; i++) H.cyl({ r: 0.22 - i * 0.05, h: 0.18, x: px - 0.4, y: 0.06 + i * 0.18, z: pz - 0.6, mat: M.std('sandcastleM', { map: 'grass', color: 0xd8c48a, rough: 1 }), col: i === 0, seg: 10 });
+        T.sandpit = [px, pz];
+      }
+      /* ---- the crossing outside the gate, where the lollipop lady stands */
+      { H.plane(19, 25, 108.6, 111.4, 0.02, M.std('zebra', { color: 0x3a3a3c, rough: 0.9 }), 2);
+        for (let i = 0; i < 5; i++) H.box({ w: 0.7, h: 0.008, d: 2.6, x: 19.8 + i * 1.1, y: 0.03, z: 110, mat: M.std('zebraWhite', { color: 0xf4efe2, rough: 0.85 }), col: false, cast: false });
+        for (const s of [-1, 1]) { H.cyl({ r: 0.06, h: 1.9, x: 22 + s * 3.6, z: 110, mat: 'whitewood', col: true });
+          const gl = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 9), M.std('belisha', { color: 0xf2c14e, rough: 0.4, emissive: 0xf2a020, ei: 0.3 }));
+          gl.position.set(22 + s * 3.6, 2.02, 110); gl.userData.dynamic = true; root.add(gl); }
+        T.crossingSchool = [22, 110]; }
+      /* ---- school railings and gates */
+      T.props.picket(H, 4, 116, 28, 116, { h: 1.1, color: 0x2f5f4a, gaps: [[20.6, 23.4]] });
+      T.props.picket(H, 4, 116, 4, 142, { h: 1.1, color: 0x2f5f4a, gaps: [] });
+      T.props.picket(H, 4, 142, 28, 142, { h: 1.1, color: 0x2f5f4a, gaps: [[15.4, 16.6]] });
+      W.collider(15.3, 16.7, 141.4, 142.6, 0, 0.4, { name: 'schoolRailGap' });
+      /* ---- trees, benches, a bike rack */
+      for (const [tx, tz, s, k] of [[6, 112, 1.1, 'birch'], [56, 114, 1.3, 'oak'], [56, 148, 1.2, 'oak'], [8, 148, 1.1, 'birch'], [50, 134, 1, 'oak']]) veg.trees.push([tx, tz, s, k]);
+      for (const [bx, bz] of [[27, 128], [27, 136]]) { H.box({ w: 0.42, h: 0.1, d: 1.6, x: bx, y: 0.42, z: bz, mat: 'midwood', climb: true, colY0: -0.42 }); }
+      for (let i = 0; i < 5; i++) { const rx = 32 + i * 0.5; H.cyl({ r: 0.03, h: 0.5, x: rx, z: 127, mat: 'darkmetal', col: false }); H.cyl({ r: 0.03, h: 0.5, x: rx, z: 128, mat: 'darkmetal', col: false }); H.box({ w: 0.04, h: 0.04, d: 1, x: rx, y: 0.5, z: 127.5, mat: 'darkmetal', col: false }); }
+      /* ---- open north to Birch Lane and south to the canal */
+      R.walls(SC.x0, SC.x1, SC.z0, SC.z1, 0, 6, { n: [[20, 24]], s: [[28, 32]], e: [], w: [] });
+      R.sign(ctx, 26.6, 113.6, Math.PI, 'LARKSPUR PRIMARY', { w: 1.7, h: 1.3, bg: '#2f4f6a' });
+    },
+  });
+  T.regions.school = R.byId.school;
+
+  /* ================================================================ THE CANAL
+     A towpath, a moored narrowboat, a lock with working-looking gates,
+     ducks, reeds and a footbridge over to the far bank. */
+  const CA = { x0: -54, x1: 100, z0: 152, z1: 180 };
+  const W_Z0 = 162, W_Z1 = 170, W_Y = -0.55; // the cut itself
+  R.def({
+    id: 'canal', name: 'The Canal', bounds: [CA.x0, CA.x1, CA.z0, CA.z1], preload: 26,
+    // the ground drops to the canal bed under the water, so the cut is a real cut
+    terrains: [{ x0: CA.x0, x1: CA.x1, z0: W_Z0, z1: W_Z1, h: () => W_Y - 0.4 }],
+    areas: [
+      ['caLock', 'Larkspur Lock', 30, 46, 158, 174, { zone: 'town', surf: 'stone' }],
+      ['caBoat', 'The Narrowboat', -6, 12, 160, 168, { zone: 'town', surf: 'wood' }],
+      ['caFar', 'The Far Bank', -54, 100, 170, 180, { zone: 'garden', surf: 'grass' }],
+      ['canal', 'The Canal', -54, 100, 152, 180, { zone: 'town', surf: 'grass' }],
+    ],
+    nav: {
+      nodes: {
+        caW: [-26, 0, 158], caMid: [16, 0, 158], caLock: [38, 0, 158], caE: [66, 0, 158],
+        caBoat: [3, 0, 160.5], caBridgeS: [60, 0, 158.2], caBridge: [60, 1.5, 166], caFar: [60, 0, 174.4], caQuack: [-12, 0, 160],
+      },
+      edges: 'alSouth-caW scSouth-caMid caW-caMid caMid-caLock caLock-caE caMid-caBoat caE-caBridgeS caBridgeS-caBridge caBridge-caFar caW-caQuack',
+    },
+    build(ctx) {
+      const { H, veg } = ctx, root = ctx.root, rng = rngOf(5353);
+      /* ---- the cut: banks, water and a stone edge */
+      H.plane(CA.x0, CA.x1, W_Z0 - 0.5, W_Z1 + 0.5, W_Y - 0.4, M.std('canalBed', { map: 'soil', color: 0x4a4436, rough: 1 }), 4);
+      R.water(ctx, CA.x0, CA.x1, W_Z0, W_Z1, W_Y, { name: 'the canal', s: 6 });
+      // coping stones along both banks, and the drop into the water
+      for (const [bz, side] of [[W_Z0, -1], [W_Z1, 1]]) {
+        H.box({ w: CA.x1 - CA.x0, h: 0.3, d: 0.5, x: (CA.x0 + CA.x1) / 2, y: -0.3, z: bz + side * 0.25, mat: M.std('coping', { map: 'stone', color: 0xb0a898, rough: 0.9 }), col: false });
+        H.wall(CA.x0, bz, CA.x1, bz, 0.02, 0.5, 'stonewall', 'stonewall', [], { s: 2, edge: 'stonewall', y: W_Y });
+      }
+      /* ---- the towpath on the near bank, grass on the far one */
+      H.plane(CA.x0, CA.x1, 156, W_Z0, 0.01, M.std('towpath', { map: 'dirt', color: 0xc8b898, rough: 1 }), 4);
+      W.noGrass.push([CA.x0, CA.x1, 155.5, W_Z0 + 0.5, 1], [45.2, 48.8, 152, 155.7, 1]); // the towpath, and inside the lock-keeper's hut
+      veg.grass.push([CA.x0 + 2, CA.x1 - 2, 152, 155.5, 1.2], [CA.x0 + 2, CA.x1 - 2, W_Z1 + 1, 179, 1.4]);
+      R.path(ctx, [[-26, 152], [-26, 156]], 1.4, grav());
+      R.path(ctx, [[30, 152], [30, 156]], 1.4, grav());
+      /* ---- reeds and lilies along the edges */
+      for (let i = 0; i < 150; i++) {
+        const x = CA.x0 + 2 + rng() * (CA.x1 - CA.x0 - 4), edge = rng() < 0.5;
+        const z = edge ? W_Z0 + 0.3 + rng() * 0.8 : W_Z1 - 1.1 + rng() * 0.8;
+        if (x > 28 && x < 48) continue; // keep the lock clear
+        veg.ferns.push([x, z, 0.8 + rng() * 0.7, 'reed']);
+      }
+      /* ---- the narrowboat "Kingfisher", moored on the near bank */
+      { const bx = 3, bz = 164.2, L = 14, Wd = 2.1;
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(L, 1.0, Wd), M.std('boatHull2', { color: 0x1f4a3a, rough: 0.5 }));
+        hull.position.set(bx, W_Y + 0.28, bz); hull.castShadow = true; root.add(hull);
+        // pointed bow and stern: triangular prisms whose flat side matches the hull
+        { const r = Wd / Math.sqrt(3);
+          for (const s of [-1, 1]) { const w2 = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1.0, 3), M.std('boatHull2', { color: 0x1f4a3a, rough: 0.5 })); w2.rotation.y = s * Math.PI / 2; w2.position.set(bx + s * (L / 2 + r / 2), W_Y + 0.28, bz); w2.castShadow = true; root.add(w2); }
+          W.collider(bx - L / 2 - r, bx + L / 2 + r, bz - Wd / 4, bz + Wd / 4, W_Y, W_Y + 0.78, { cam: false }); }
+        // the cabin, roofed in red with a cream band
+        const cab = new THREE.Mesh(new THREE.BoxGeometry(9, 1.05, Wd - 0.2), M.std('boatCab2', { color: 0x1f4a3a, rough: 0.5 }));
+        cab.position.set(bx - 1, W_Y + 1.28, bz); cab.castShadow = true; root.add(cab);
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.12, Wd), M.std('boatRoof', { color: 0xa8342a, rough: 0.6 }));
+        roof.position.set(bx - 1, W_Y + 1.86, bz); roof.castShadow = true; root.add(roof);
+        // the deck and roof are solid: Milo can get aboard
+        W.collider(bx - L / 2, bx + L / 2, bz - Wd / 2, bz + Wd / 2, W_Y, W_Y + 0.78, { cam: false, name: 'boatDeck' });
+        W.collider(bx - 5.6, bx + 3.6, bz - Wd / 2, bz + Wd / 2, W_Y + 0.78, W_Y + 1.86, { cam: false });
+        W.collider(bx - 5.6, bx + 3.6, bz - Wd / 2, bz + Wd / 2, W_Y + 1.7, W_Y + 1.92, { cam: false, name: 'boatRoofTop' });
+        // portholes, a chimney, a tiller and the name board
+        for (let i = 0; i < 5; i++) for (const s of [-1, 1]) {
+          const ph = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.08, 12), M.get('brass'));
+          ph.rotation.x = Math.PI / 2; ph.position.set(bx - 4.6 + i * 1.9, W_Y + 1.3, bz + s * (Wd / 2 - 0.08)); root.add(ph);
+        }
+        H.cyl({ r: 0.11, h: 0.62, x: bx - 4, y: W_Y + 1.86, z: bz, mat: M.std('boatFlue', { color: 0x2a2a2e, rough: 0.7, metal: 0.3 }), col: false });
+        H.cyl({ r: 0.035, h: 0.9, x: bx + 5.6, y: W_Y + 0.78, z: bz, mat: 'darkwood', col: false, rz: 0.5 });
+        { const tex = R.text('boatName', 320, 80, (g2, W2, H2) => { g2.fillStyle = '#1f4a3a'; g2.fillRect(0, 0, W2, H2); g2.fillStyle = '#f2e0a8'; g2.font = 'bold italic 44px Georgia'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText('Kingfisher', W2 / 2, H2 / 2 + 2); });
+          for (const s of [-1, 1]) { const nb = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.45), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 })); nb.position.set(bx + 3.4, W_Y + 1.3, bz + s * (Wd / 2 + 0.01)); nb.rotation.y = s > 0 ? 0 : Math.PI; root.add(nb); } }
+        // pots of flowers on the roof, and a gangplank ashore
+        for (let i = 0; i < 4; i++) { const px = bx - 4.2 + i * 2.2; H.cyl({ r: 0.16, h: 0.2, x: px, y: W_Y + 1.92, z: bz + 0.5, mat: M.std('flowerPot', { color: 0xb5613a, rough: 0.9 }), col: false });
+          for (let k = 0; k < 4; k++) veg.flowers.push([px + (rng() - 0.5) * 0.3, bz + 0.5 + (rng() - 0.5) * 0.3, [0xd9412f, 0xe8d98a, 0xe7a0b0][k % 3]]); }
+        R.ramp(ctx, bx + 4, W_Z0 - 0.1, 0.02, bx + 4, bz - Wd / 2, W_Y + 0.78, 0.7, 'midwood');
+        // mooring ropes and bollards
+        for (const ox of [-6, 6]) { H.cyl({ r: 0.1, h: 0.4, x: bx + ox, y: 0, z: W_Z0 - 0.9, mat: 'darkmetal', col: true, seg: 10 });
+          const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.2, 5), M.std('rope2', { color: 0xc8b48a, rough: 1 }));
+          rope.position.set(bx + ox * 0.9, W_Y + 0.7, W_Z0 - 0.3); rope.rotation.set(0.7, 0, ox > 0 ? -0.5 : 0.5); root.add(rope); }
+        T.boat = [bx, bz];
+      }
+      /* ---- the lock: two chambers of stone, gates at each end, a beam to push */
+      { const lx0 = 32, lx1 = 44;
+        for (const bz of [W_Z0, W_Z1]) H.box({ w: lx1 - lx0, h: 1.4, d: 1.2, x: (lx0 + lx1) / 2, y: W_Y, z: bz + (bz === W_Z0 ? -0.6 : 0.6), mat: M.std('lockStone', { map: 'stonewall', color: 0xa39a88, rough: 0.95 }), climb: true });
+        T.lockGates = [];
+        for (const [gx, side] of [[lx0, -1], [lx1, 1]]) {
+          for (const half of [-1, 1]) {
+            const piv = new THREE.Group(); piv.position.set(gx, W_Y, half < 0 ? W_Z0 + 0.1 : W_Z1 - 0.1); root.add(piv);
+            const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.1, 4.1), M.std('lockGate', { color: 0x3a2f22, rough: 0.9, map: 'shedwood' }));
+            leaf.position.set(0, 1.0, half < 0 ? 2.0 : -2.0); leaf.castShadow = true; piv.add(leaf);
+            // the balance beam sticking out over the bank
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.2, 3.4), M.get('darkwood'));
+            beam.position.set(0, 2.0, half < 0 ? -1.5 : 1.5); beam.castShadow = true; piv.add(beam);
+            piv.traverse((m) => (m.userData.dynamic = true));
+            piv.rotation.y = half * 0.5;
+            T.lockGates.push({ g: piv, half, side, open: true });
+          }
+        }
+        // the lock walls stop Milo falling in, but the beams are walkable
+        for (const [gx] of [[lx0], [lx1]]) W.collider(gx - 0.3, gx + 0.3, W_Z0, W_Z1, W_Y, W_Y + 0.4, { climb: true, cam: false });
+        R.sign(ctx, 38, 157.4, 0, 'LARKSPUR LOCK', { w: 1.5, h: 1.2, bg: '#3a4f2a' });
+      }
+      /* ---- the footbridge over to the far bank */
+      { const bx = 60;
+        R.ramp(ctx, bx, 158.4, 0.02, bx, 161.4, 1.5, 1.4, 'midwood');
+        R.bridge(ctx, bx, W_Z0 - 0.6, bx, W_Z1 + 0.6, 1.5, 1.4, { name: 'canalBridge' });
+        R.ramp(ctx, bx, W_Z1 + 0.6, 1.5, bx, 173.6, 0.02, 1.4, 'midwood');
+        for (const s of [-1, 1]) H.cyl({ r: 0.1, h: 1.6, x: bx + s * 0.7, y: 0, z: W_Z0 - 0.7, mat: 'darkwood', col: false });
+      }
+      /* ---- the far bank: a hedge, a couple of willows, a bench */
+      H.hedge(CA.x0 + 2, 178.6, CA.x1 - 2, 178.6, 1.8, 1.2, [[58, 62, 0.4]]);
+      for (const [tx, tz, s, k] of [[-30, 174, 1.4, 'willow'], [18, 175, 1.3, 'willow'], [78, 174, 1.2, 'willow'], [-48, 156, 1.1, 'oak'], [92, 157, 1.2, 'oak']]) veg.trees.push([tx, tz, s, k]);
+      H.box({ w: 1.7, h: 0.1, d: 0.44, x: 52, y: 0.44, z: 158.6, mat: 'midwood', climb: true, colY0: -0.44 });
+      for (const [lx] of [[-20], [16], [52], [86]]) T.lamp(W.h, lx, 155.4, {});
+      /* ---- a lock-keeper's hut and a pile of coal */
+      { const hx = 47, hz = 153.9; // set back off the towpath, door facing it
+        H.wall(hx - 1.6, hz - 1.6, hx + 1.6, hz - 1.6, 2.2, 0.16, 'stonewall', 'stonewall', [], { s: 1.4, edge: 'stonewall' });
+        H.wall(hx - 1.6, hz + 1.6, hx + 1.6, hz + 1.6, 2.2, 0.16, 'stonewall', 'stonewall', [[hx - 0.55, hx + 0.55, 1.9]], { s: 1.4, edge: 'stonewall' });
+        H.wall(hx - 1.6, hz - 1.6, hx - 1.6, hz + 1.6, 2.2, 0.16, 'stonewall', 'stonewall', [], { s: 1.4, edge: 'stonewall' });
+        H.wall(hx + 1.6, hz - 1.6, hx + 1.6, hz + 1.6, 2.2, 0.16, 'stonewall', 'stonewall', [], { s: 1.4, edge: 'stonewall' });
+        H.roofPrism(hx, hz, 3.4, 3.4, 2.2, 1.0, true, M.get('shingles'), M.get('shingles'));
+        H.plane(hx - 1.6, hx + 1.6, hz - 1.6, hz + 1.6, 0.02, 'planks', 1.4); // walk in through the door; the walls collide on their own
+        const hc = H.plane(hx - 1.6, hx + 1.6, hz - 1.6, hz + 1.6, 2.2, 'plaster', 2); hc.rotation.x = Math.PI; hc.position.y = 2.2;
+        for (let i = 0; i < 9; i++) { const a = rng() * 6.28, r2 = rng() * 0.7; H.sph({ x: 50.4 + Math.cos(a) * r2, y: 0.08 + rng() * 0.12, z: 154 + Math.sin(a) * r2, r: 0.1 + rng() * 0.06, mat: M.std('coal', { color: 0x1c1c1e, rough: 0.9 }) }); } }
+      /* ---- boundary: open north to the allotments and the school */
+      R.walls(CA.x0, CA.x1, CA.z0, CA.z1, 0, 6, { n: [[-28, -24], [28, 32], [64, 70]], s: [], e: [], w: [] });
+      R.sign(ctx, -23.4, 154.4, 0, 'THE TOWPATH', { w: 1.4, h: 1.2, bg: '#3a4f2a' });
+    },
+  });
+  T.regions.canal = R.byId.canal;
+})();
+
+/* =====================================================================
+   world-town.js (part four) - life in the allotments, the school and on
+   the canal: four more animals, four townsfolk on routines, the train,
+   the school bell, and the rest of the collectibles and dig spots.
+   ===================================================================== */
+(function () {
+  const U = G.U, M = G.Mat, A = G.Audio, W = G.World, UG = W.UG, R = G.Regions, NPC = G.NPC, SQ = G.SQ, T = G.Town;
+  const game = () => G.game, S = () => G.game.S, UI = () => G.UI, C = () => G.Cast, K = () => G.Kit;
+  const has = (k) => !!(G.game && G.game.S.flags[k]);
+  const flag = (k, v = true) => game().flag(k, v);
+  const Q = (id) => (S().quests || {})[id];
+  const item = (id) => G.game.hasItem(id);
+  const open = () => T.open();
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const g_ = (x, z) => [x, 'g', z];
+  const add = (o) => G.INTERACT.push(o);
+  const award = (id) => G.Extras && G.Extras.award && G.Extras.award(id);
+  const hour = () => (G.game ? G.game.S.time || 12 : 12);
+  const isDay = () => hour() > 7 && hour() < 20;
+
+  /* ================================================================ ITEMS */
+  Object.assign(G.ITEMS, {
+    hoglet: { name: 'A Very Small Hedgehog', desc: 'Prickly, warm and extremely indignant about being carried. His name is Bramble Junior, and he would like to go home now.' },
+    acornbag: { name: "Rusty's Nuts", desc: 'A little heap of hazelnuts and acorns, dug up from other people’s gardens. They smell of Birch Lane.' },
+    ticket: { name: 'Ferry Ticket', desc: 'A bus ticket with “FERRY” scratched on it by a beak. Captain Quack’s own design. Valid for one crossing.' },
+  });
+
+  /* ================================================================ COLLECTIBLES (the other twelve) */
+  const TC2 = [
+    ['t_seedpkt', 'note', 'Seed Packet', 'Runner beans, "Scarlet Emperor". The packet is empty. The beans are very much planted.', [-44.6, 0.2, 117.2]],
+    ['t_trowel', 'key', 'Tiny Trowel', 'A child’s trowel, painted green, left at the edge of plot six.', [-28.4, 0.2, 122.4]],
+    ['t_tomato', 'berries', 'Cherry Tomato', 'Perfectly ripe. It fell off the vine in the greenhouse. Milo will not eat it. Probably.', [-8.4, 0.08, 126.4]],
+    ['t_hat', 'ribbon', 'Scarecrow’s Hatband', 'A strip of red ribbon from the scarecrow’s hat. The crows took the rest.', [-4.6, 0.04, 135.2]],
+    ['t_spike', 'bottlecap', 'Railway Spike', 'An old iron spike from beside the tracks. Heavy, cold and very important-looking.', [-40, 0.34, 139.4]],
+    ['t_rubber', 'foil', 'Star Eraser', 'A star-shaped eraser, smelling faintly of strawberries. Lost under the swings.', [10.8, 0.04, 123.4]],
+    ['t_bead', 'marble', 'Friendship Bead', 'A blue bead from a snapped friendship bracelet, glinting in the sandpit.', [12.4, 0.1, 134.2]],
+    ['t_sticker', 'photo', 'Gold Star Sticker', 'A gold star sticker: "SUPER EFFORT". Milo has earned it, surely.', [24.1, 2.66, 134.6]],
+    ['t_rope', 'ribbon', 'Mooring Knot', 'A neat little knot of rope, cut from the end of the Kingfisher’s line.', [-3.2, 0.2, 159.6]],
+    ['t_feather', 'feather', 'Duck Feather', 'A shimmering green duck feather from the towpath. Captain Quack will pretend it isn’t his.', [-14.4, 0.04, 158.6]],
+    ['t_lockkey', 'gear', 'Lock Windlass', 'A tiny brass windlass charm from the lock-keeper’s hut. For very small locks.', [47.4, 0.2, 153.6]],
+    ['t_coin3', 'coin', 'Towpath Token', 'An old canal toll token, green with age. It paid for a horse, once.', [60.4, 0.2, 175.2]],
+  ];
+  for (const [id, model, name, desc, pos] of TC2) G.COLLECT.push({ id, cat: 'town', model, name, desc, pos });
+
+  /* ================================================================ DIG SPOTS (four more, eight in all) */
+  const DIGS2 = [
+    { id: 'td5', pos: [-29.6, 0, 132.6], loot: 'treat' },
+    { id: 'td6', pos: [-44.4, 0, 136.4], loot: 'coin' },
+    { id: 'td7', pos: [16.2, 0, 145.4], loot: 'button' },
+    { id: 'td8', pos: [-40, 0, 154.2], loot: 'bone' },
+  ];
+  T.digs.push(...DIGS2);
+  { const oInit = G.EXT.init;
+    G.EXT.init = function (g) {
+      oInit(g);
+      // mirror the part-two dig setup for the new spots
+      for (const d of DIGS2) {
+        const mm = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), M.get('dirt'));
+        mm.scale.set(1, 0.3, 1); mm.position.set(d.pos[0], d.pos[1], d.pos[2]); mm.receiveShadow = true; g.scene.add(mm); T.mounds[d.id] = mm;
+        G.INTERACT.push({ id: 'dig_' + d.id, pos: d.pos, r: 0.6, label: 'Dig in the soft soil', anim: 'dig', when: () => open() && !(S().dug || {})[d.id], act: () => T.dig(d) });
+      }
+    };
+  }
+
+  /* ================================================================ QUESTS */
+  Object.assign(G.QUESTS, {
+    tq_hoglet: {
+      kind: 'Side quest', title: 'The Lost Hoglet', giver: 'Mrs Brambling',
+      steps: { find: 'Find the littlest Brambling (listen for sneezing)', home: 'Carry the hoglet home to the big shed' },
+      done: 'Bramble Junior is home, has been told off, and has immediately fallen asleep.',
+      target: (st) => (st === 'find' ? [-6.8, 0, 133.9] : [-48.6, 0, 119.7]),
+    },
+    tq_rusty: {
+      kind: 'Side quest', title: 'Rusty’s Nuts', giver: 'Rusty',
+      steps: { dig: 'Sniff out the three nut stashes Rusty buried in the wrong gardens', ret: 'Bring the nuts back to Rusty' },
+      done: 'Rusty has buried every single nut again. In the wrong gardens. He is delighted.',
+      target: (st) => (st === 'dig' ? T.rustyNext() : [-28.6, 0, 113.4]),
+    },
+    tq_ferry: {
+      kind: 'Side quest', title: 'The Canal Ferry', giver: 'Captain Quack',
+      steps: { ticket: 'Find something Captain Quack will accept as a ticket', ride: 'Ride the ferry across the canal' },
+      done: 'The crossing was eleven seconds long. Captain Quack called it "a proper voyage".',
+      target: (st) => (st === 'ticket' ? [51.6, 0.2, 155.4] : [-12, 0, 160]),
+    },
+    tq_nibbles: {
+      kind: 'Side quest', title: 'Nibbles’ Day Out', giver: 'Nibbles',
+      steps: { out: 'Take Nibbles to see the sandpit, the swings and the top of the climbing frame' },
+      done: 'Nibbles has seen the whole world. It is bigger than her cage. She is going to need a nap.',
+      target: () => T.nibblesNext(),
+    },
+  });
+
+  /* ================================================================ THE ANIMALS */
+  /* ---- the Bramblings: a hedgehog family under the allotment shed */
+  NPC.add({
+    id: 'mrsbram', name: 'Mrs Brambling', kind: 'hedgehog', sound: 'snuffle',
+    look: { scale: 1.2, color: 0x7a5a3a, apron: 0xe8c8a8, apronScale: 0.6 },
+    pos: g_(-48.6, 119.7), yaw: Math.PI, wander: 0.3, when: () => open(),
+    lines: () => {
+      const q = Q('tq_hoglet');
+      if (!q) return [
+        ['mrsbram', 'Oh! A ferret. You gave me such a fright, I nearly curled up.', 'surprised'],
+        ['mrsbram', 'I’m Mrs Brambling. We live under the big shed: me, Mr B, and our four little ones.', 'neutral'],
+        ['mrsbram', 'Well. THREE little ones, at the moment. Bramble Junior wandered off this morning and hasn’t come home.', 'sad'],
+        ['mrsbram', 'He sneezes when he’s nervous. If you hear a very small sneeze, that’s him.', 'think'],
+        { do: () => G.EXT.startQuest('tq_hoglet', 'find') },
+      ];
+      if (q === 'home' && item('hoglet')) return [
+        ['mrsbram', 'JUNIOR! You naughty, prickly, wonderful thing!', 'happy'],
+        { do: () => { game().take('hoglet'); G.EXT.setQuest('tq_hoglet', 'done'); T.hogletHome = true; award('ach_hoglet'); } },
+        ['mrsbram', 'Where was he?', 'think'],
+        ['milo', '*In the scarecrow’s straw. He said he was being a scarecrow too.*', 'happy'],
+        ['mrsbram', 'Of course he did. His father was exactly the same. Thank you, dear. Come by any evening; there are always slugs.', 'happy'],
+      ];
+      if (q === 'find') return [['mrsbram', 'Listen for the sneeze, dear. He never could hold one in.', 'sad']];
+      return [['mrsbram', pick(['Junior has promised never to wander again. He is wandering right now, under the shed. That counts.', 'The gardener leaves us a saucer of water. Such a kind man, for a human.', 'Evenings are best. The slugs come out, and so do we.']), 'happy']];
+    },
+  });
+  // the other three hoglets, snoozing by the shed
+  for (let i = 0; i < 3; i++) NPC.add({
+    id: 'hoglet' + i, name: ['Bramble Minor', 'Thistle', 'Burr'][i], kind: 'hedgehog', sound: 'snuffle', portrait: false,
+    look: { scale: 0.6, color: 0x8a6a4a }, pos: g_(-50.4 + i * 0.6, 119.8), yaw: Math.PI + i * 0.4, wander: 0.2, when: () => open(),
+    lines: () => [[`hoglet${i}`, pick(['*snore*', 'Are you a big hedgehog?', 'Junior is in TROUBLE.', 'I found a woodlouse. It’s mine.']), 'happy']],
+  });
+  G.NAMES.hoglet0 = 'Bramble Minor'; G.NAMES.hoglet1 = 'Thistle'; G.NAMES.hoglet2 = 'Burr';
+  // Bramble Junior, hiding in the scarecrow's straw
+  NPC.add({
+    id: 'junior', name: 'Bramble Junior', kind: 'hedgehog', sound: 'snuffle', portrait: false,
+    look: { scale: 0.55, color: 0x8a6a4a }, pos: g_(-6.8, 133.9), yaw: 0.4, wander: 0, when: () => open() && Q('tq_hoglet') === 'find',
+    label: 'Scoop up the hoglet',
+    lines: () => [
+      ['junior', 'ATCHOO!', 'surprised'],
+      ['junior', 'I’m a scarecrow. You can’t see me. I’m made of straw.', 'neutral'],
+      ['milo', '*You’re made of hedgehog. And your mum is very worried.*', 'neutral'],
+      ['junior', '...Is she cross?', 'sad'],
+      ['milo', '*A bit. Mostly she misses you. Climb on, I’ll carry you home.*', 'happy'],
+      { do: () => { game().give('hoglet'); G.EXT.setQuest('tq_hoglet', 'home'); } },
+    ],
+  });
+  G.NAMES.junior = 'Bramble Junior';
+
+  /* ---- Rusty: a squirrel who buried his nuts in everyone else's garden */
+  const RUSTY_STASH = [[-29.2, 0, 80.4], [5.6, 0, 80.8], [33.8, 0, 94.8]];
+  T.rustyNext = () => { const s = S().town || {}; const i = RUSTY_STASH.findIndex((p, k) => !(s.rusty || {})[k]); return i < 0 ? [-28.6, 0, 113.4] : RUSTY_STASH[i]; };
+  NPC.add({
+    id: 'rusty', name: 'Rusty', kind: 'squirrel', sound: 'churr',
+    look: { scale: 1.15, color: 0xb05a2a }, pos: g_(-28.6, 113.4), yaw: 0.8, wander: 1.2, when: () => open(),
+    lines: () => {
+      const q = Q('tq_rusty'), n = Object.keys((S().town || {}).rusty || {}).length;
+      if (!q) return [
+        ['rusty', 'Nuts. NUTS. I had nuts. I buried the nuts. Where are the nuts?', 'surprised'],
+        ['milo', '*Hello! I’m Milo. Are you all right?*', 'neutral'],
+        ['rusty', 'Rusty. Rusty the squirrel. I buried three lots of nuts on Birch Lane, but all the gardens look the same, and there are gnomes, and the gnomes STARE.', 'sad'],
+        ['rusty', 'You’ve got a nose. A proper nose. Sniff them out? One in the Hartleys’ garden, one by the Okonkwos’ feeder, one behind the Paynes’ treehouse, I think, maybe.', 'think'],
+        { do: () => { const s = S(); s.town = s.town || {}; s.town.rusty = {}; G.EXT.startQuest('tq_rusty', 'dig'); } },
+      ];
+      if (q === 'dig' && n >= 3) return [
+        ['rusty', 'THE NUTS! All of them! Every single one!', 'happy'],
+        { do: () => { game().take('acornbag', 99); G.EXT.setQuest('tq_rusty', 'ret'); G.EXT.setQuest('tq_rusty', 'done'); award('ach_rusty'); } },
+        ['rusty', 'Right. Right. I’m going to bury them somewhere SAFE this time.', 'think'],
+        ['milo', '*Where?*', 'neutral'],
+        ['rusty', 'Birch Lane! In the gardens! ...Oh no.', 'surprised'],
+        ['rusty', 'Also, and I’m sorry about this, I sat on a cushion in the treehouse. A posh one. I think it belongs to a cat.', 'sad'],
+      ];
+      if (q === 'dig') return [['rusty', `${n} of 3! Keep sniffing! Press Q, that’s what I’d do if I had a nose like yours.`, 'happy']];
+      return [['rusty', pick(['I’ve re-buried them. I’ve already forgotten where. This is my life.', 'Tell the posh cat I said sorry. Tell her from a distance.', 'The allotment man grows sunflowers. SUNFLOWERS. Seeds, the size of your ear!']), 'happy']];
+    },
+  });
+  RUSTY_STASH.forEach((p, k) => add({
+    id: 'rusty_stash' + k, pos: p, r: 0.9, label: 'Dig up Rusty’s nuts', anim: 'dig',
+    when: () => open() && Q('tq_rusty') === 'dig' && !((S().town || {}).rusty || {})[k],
+    act: () => {
+      const g = game(); g.player.act('dig', 1.2, { lockMove: true }); A.play('dig');
+      setTimeout(() => {
+        const s = S(); s.town = s.town || {}; s.town.rusty = s.town.rusty || {}; s.town.rusty[k] = true; g.give('acornbag');
+        const n = Object.keys(s.town.rusty).length;
+        SQ.toast('Rusty’s nuts', n < 3 ? `Stash ${n} of 3. Rusty is going to be thrilled.` : 'All three stashes! Back to Rusty in the allotments.');
+        UI().updateObjective(true);
+      }, 1200);
+    },
+  }));
+
+  /* ---- Captain Quack, who runs a "ferry" across the canal */
+  NPC.add({
+    id: 'quack', name: 'Captain Quack', kind: 'duck', sound: 'quack',
+    look: { scale: 1.35, color: 0x6a5a48, head: 0x2a6a4a, hat: 'cap', hatColor: 0x2a3a55, hatScale: 1.1 },
+    pos: g_(-12, 160.4), yaw: Math.PI, wander: 0.8, when: () => open(),
+    lines: () => {
+      const q = Q('tq_ferry');
+      if (!q) return [
+        ['quack', 'AHOY! Captain Quack, master of the Larkspur Ferry. Est. last Tuesday.', 'happy'],
+        ['milo', '*What ferry?*', 'think'],
+        ['quack', 'ME. I am the ferry. You climb on, I paddle, we cross. Very modern.', 'happy'],
+        ['quack', 'Tickets only, mind. No ticket, no voyage. Those are the rules. I made them.', 'neutral'],
+        ['quack', 'Anything official-looking will do. The lock-keeper leaves all sorts lying about by his hut.', 'think'],
+        { do: () => G.EXT.startQuest('tq_ferry', 'ticket') },
+      ];
+      if (q === 'ticket' && item('ticket')) return [
+        ['quack', 'A TICKET. A genuine, beak-certified ticket. All aboard!', 'happy'],
+        { do: () => { game().take('ticket'); G.EXT.setQuest('tq_ferry', 'ride'); T.ferryRide(); } },
+      ];
+      if (q === 'ticket') return [['quack', 'No ticket, no voyage. Try the lock-keeper’s hut. He’s very careless with paper.', 'neutral']];
+      return [
+        ['quack', pick(['Another crossing, sailor? Hop on.', 'The Larkspur Ferry never sinks. Mostly.', 'Mind the lock. The lock is where ducks go to look important.']), 'happy'],
+        { choice: [
+          { t: 'Ride the ferry', then: [{ do: () => T.ferryRide() }] },
+          { t: 'Maybe later', then: [['quack', 'The ferry waits for no ferret. Except you. I’ll wait for you.', 'happy']] },
+        ] },
+      ];
+    },
+  });
+  G.PICKUPS.push({ id: 'p_ticket', item: 'ticket', model: 'note', pos: [51.6, 0.2, 155.4], when: () => Q('tq_ferry') === 'ticket', msg: 'An old bus ticket by the lock-keeper’s coal pile. Close enough to official.' });
+  // the ferry ride: Milo rides on Quack's back, across and back again
+  T.ferryRide = function () {
+    const g = game(), k = K(), q = NPC.get('quack');
+    if (!k || !q || !q.beast) { g.travel([-12, 0, 172], 0); return; }
+    k.cutscene(async () => {
+      const b = q.beast.root, p = g.player;
+      b.position.set(-12, -0.52, 162.6); p.teleport(-12, -0.2, 162.6, 0);
+      A.play('quack'); k.shot([-7, 1.8, 158], [-12, -0.2, 166]);
+      p.pin = () => ({ p: new THREE.Vector3(b.position.x, b.position.y + 0.28, b.position.z), yaw: 0 });
+      for (let t = 0; t < 1; t += 0.02) { b.position.z = 162.6 + t * 6.8; await k.wait(0.05); }
+      await k.talk([['quack', 'LAND HO! The far bank, as promised. The voyage home is included.', 'happy']]);
+      for (let t = 0; t < 1; t += 0.02) { b.position.z = 169.4 - t * 6.8; await k.wait(0.05); }
+      p.pin = null; p.teleport(-12, 0, 159.4, Math.PI);
+      if (Q('tq_ferry') !== 'done') { G.EXT.setQuest('tq_ferry', 'done'); award('ach_ferry'); }
+      await k.talk([['quack', 'Thank you for travelling with the Larkspur Ferry. Please leave a review. Leave it in bread.', 'happy']]);
+    });
+  };
+
+  /* ---- Nibbles, the school hamster, who wants a day out */
+  const NIB = [['sandpit', [11, 0, 135]], ['swings', [10, 0, 122.8]], ['top of the climbing frame', [22, 2.62, 134]]];
+  T.nibblesNext = () => { const s = S().town || {}; const i = NIB.findIndex((n, k) => !(s.nib || {})[k]); return i < 0 ? [40, 0, 118] : NIB[i][1]; };
+  NPC.add({
+    id: 'nibbles', name: 'Nibbles', kind: 'hamster', sound: 'squeak',
+    look: { scale: 1.3, color: 0xd9a86a }, pos: g_(40, 118.6), yaw: Math.PI, wander: 0.3, when: () => open() && Q('tq_nibbles') !== 'out',
+    lines: () => {
+      const q = Q('tq_nibbles');
+      if (!q) return [
+        ['nibbles', 'A visitor! A real live visitor! Nobody visits Class Two after four o’clock.', 'happy'],
+        ['nibbles', 'I’m Nibbles. I’m the class hamster. I have a wheel, a tube and a small ceramic house.', 'happy'],
+        ['nibbles', 'I have never, not once, been OUTSIDE. The children talk about the sandpit like it’s the seaside.', 'sad'],
+        ['milo', '*...Want to come with me? Just for a bit?*', 'happy'],
+        ['nibbles', 'YES. Yes please. Can I sit on your head?', 'happy'],
+        { do: () => { const s = S(); s.town = s.town || {}; s.town.nib = {}; G.EXT.startQuest('tq_nibbles', 'out'); T.nibblesRide(true); } },
+      ];
+      return [['nibbles', pick(['I’ve been to the sandpit. I am basically an explorer now.', 'The swings were terrifying. Ten out of ten.', 'Come back tomorrow! I’ll save you a sunflower seed.']), 'happy']];
+    },
+  });
+  // while the quest runs, Nibbles rides on Milo's head
+  T.nibblesRide = function (on) {
+    const q = NPC.get('nibbles'); if (!q) return;
+    const b = q.make(); const head = game().player.f.head;
+    if (on) { head.add(b.root); b.root.position.set(0, 0.07, -0.01); b.root.rotation.set(0, 0, 0); b.root.scale.setScalar(0.55); b.root.visible = true; q.riding = true; }
+    else { head.remove(b.root); game().scene.add(b.root); b.root.scale.setScalar(1.3); q.riding = false; q.home = null; }
+  };
+  NIB.forEach(([name, pos], k) => add({
+    id: 'nib_' + k, pos, r: k === 2 ? 1.4 : 1.8, label: `Show Nibbles the ${name}`, anim: 'sniff',
+    when: () => open() && Q('tq_nibbles') === 'out' && !((S().town || {}).nib || {})[k],
+    act: () => {
+      const s = S(); s.town.nib[k] = true;
+      const lines = [
+        [['nibbles', 'SAND. It’s like bedding, but for the whole world!', 'happy'], ['nibbles', 'I am going to dig. I am going to dig for ever.', 'happy']],
+        [['nibbles', 'It MOVES. The seat moves! Why does it move?!', 'surprised'], ['milo', '*That’s the point of it.*', 'happy'], ['nibbles', 'Humans are so brave.', 'think']],
+        [['nibbles', 'I can see... everything. The whole playground. The roofs. A pigeon. Hello, pigeon!', 'happy'], ['nibbles', 'This is the best day of my entire life. Please take me home now, I’m exhausted.', 'happy']],
+      ][k];
+      game().say(lines, () => {
+        if (Object.keys(s.town.nib).length >= 3) {
+          G.EXT.setQuest('tq_nibbles', 'done'); T.nibblesRide(false); award('ach_nibbles');
+          SQ.toast('Nibbles’ day out', 'Nibbles is back in Class Two, asleep in her tube, dreaming of sand.');
+        } else UI().updateObjective(true);
+      });
+    },
+  }));
+  SQ.onApply((s) => { const q = NPC.get('nibbles'); if (q && q.riding && Q('tq_nibbles') !== 'out') T.nibblesRide(false); if (q && !q.riding && Q('tq_nibbles') === 'out') T.nibblesRide(true); });
+
+  /* ================================================================ THE TOWNSFOLK
+     Four humans on daily routines. Each can be talked to (Milo "talks" in
+     the usual way: a sniff, a nuzzle); the baker and the gardener chase
+     Milo if he steals from them. */
+  const LOOKS = G.HumanLooks;
+  if (LOOKS) Object.assign(LOOKS, {
+    baker: { name: 'Mr Crumb', height: 1.74, skin: 0xe8b894, hair: 0xd9d0c4, hairStyle: 'bald', shirt: 0xf6f2ea, pants: 0x4a4a52, shoes: 0x3a2a22, mustache: 0xd9d0c4, belly: true, cardigan: 0xf6f2ea },
+    postie: { name: 'Pat the Postie', height: 1.78, skin: 0x9a6a4a, hair: 0x1a1210, hairStyle: 'cap', cap: 0xb02a22, shirt: 0xd9412f, pants: 0x2a3a5a, shoes: 0x1a1a1e, shorts: true, socks: 0x2a3a5a },
+    gardener: { name: 'Mr Okafor', height: 1.72, skin: 0x6a4a34, hair: 0x2a2420, hairStyle: 'flatcap', cap: 0x5a6a3a, shirt: 0xc9b88a, pants: 0x3a4a2a, shoes: 0x3a2a1e, overalls: true, beard: 0x3a3430 },
+    lollipop: { name: 'Mrs Pennywhistle', height: 1.62, skin: 0xf0c8a8, hair: 0xb8b0a8, hairStyle: 'bun', shirt: 0xf2e030, pants: 0x2a2a30, shoes: 0x1a1a1e, glasses: true, cardigan: 0xf2e030 },
+    kid1: { name: 'Sam', height: 1.2, skin: 0xd9a47e, hair: 0x2a1a10, hairStyle: 'cap', cap: 0x3f6fa0, shirt: 0x6aa84f, pants: 0x3a3a5a, shoes: 0xd9573b, shorts: true, socks: 0xffffff, cheeks: true },
+    kid2: { name: 'Priya', height: 1.16, skin: 0xb07a5a, hair: 0x1a1210, hairStyle: 'pigtails', tie: 0xf2c14e, shirt: 0xd9573b, pants: 0x2f5f9a, shoes: 0xf2c14e, shorts: true, socks: 0xffffff, cheeks: true },
+    kid3: { name: 'Olly', height: 1.24, skin: 0xf0c09a, hair: 0xc98a3a, hairStyle: 'bun', shirt: 0xf5a623, pants: 0x4a4a4a, shoes: 0x3a6a8a, cheeks: true },
+  });
+  Object.assign(G.NAMES, { baker: 'Mr Crumb', postie: 'Pat the Postie', gardener: 'Mr Okafor', lollipop: 'Mrs Pennywhistle', kid1: 'Sam', kid2: 'Priya', kid3: 'Olly' });
+
+  /* routines: [fromHour, toHour, waypoints, pose]. Outside every window, hidden. */
+  const ROUTINES = {
+    baker: [[6, 14, [[56, 0, 76.4], [58, 0, 78], [54, 0, 78.4]], 'idle'], [14, 18, [[64, 0, 80.6]], 'sit']],
+    postie: [[8, 13, [[16.5, 0, 88.6], [-6, 0, 83], [-26, 0, 83], [-22, 0, 89.4], [4, 0, 89.4], [30, 0, 89.4], [30, 0, 83], [50, 0, 86], [92, 0, 77], [66, 0, 86]], 'walk']],
+    gardener: [[9, 17, [[-20, 0, 118.2], [-36, 0, 118.2], [-43.5, 0, 128], [-26, 0, 132], [-14, 0, 119.4], [-26, 0, 124]], 'dig']],
+    lollipop: [[8, 9.5, [[22, 0, 107.6]], 'lollipop'], [15, 16.5, [[22, 0, 107.6]], 'lollipop']],
+    kid1: [[12, 16, [[10, 0, 122.4], [22, 0, 131], [12, 0, 134]], 'play']],
+    kid2: [[12, 16, [[11.2, 0, 136], [17, 0, 126], [24, 0, 120]], 'play']],
+    kid3: [[12, 16, [[21, 0, 136.8], [8.4, 0, 122.4], [18, 0, 128]], 'play']],
+  };
+  const FOLK = (T.folk = {});
+  const initFolk = () => {
+    if (!LOOKS || !G.Human) return;
+    for (const id in ROUTINES) {
+      const h = new G.Human(id); h.root.visible = false; game().scene.add(h.root);
+      h.routine = ROUTINES[id]; h.wp = 0; h.wait = 0; h.home = false;
+      FOLK[id] = h; C().extraHumans.push(h);
+    }
+    // portraits for dialogue and toasts
+    G.UI.portraitsExtra = G.UI.portraitsExtra || {};
+    for (const id of ['baker', 'postie', 'gardener', 'lollipop', 'kid1', 'kid2', 'kid3']) {
+      try {
+        const h = new G.Human(id); h.update(0.016, {}); h.update(0.5, {});
+        const p = new THREE.Vector3(); h.head.getWorldPosition(p);
+        const url = G.Portrait.shot('h_' + id, h.root, new THREE.Vector3(p.x + 0.12, p.y + 0.02, p.z + 0.62), new THREE.Vector3(p.x, p.y, p.z));
+        G.UI.portraitsExtra[id] = url; if (G.UI.portraits) G.UI.portraits[id] = url;
+      } catch (e) { console.warn('portrait', id, e); }
+    }
+  };
+  { const oInit = G.EXT.init; G.EXT.init = function (g) { oInit(g); initFolk(); }; }
+
+  const windowFor = (h) => { const t = hour(); return h.routine.find(([a, b]) => t >= a && t < b) || null; };
+  SQ.tick((dt, s, st) => {
+    if (!G.game || !G.Kit) return;
+    const pl = game().player;
+    for (const id in FOLK) {
+      const h = FOLK[id];
+      if (h.chase) { h.update(dt, { lookY: h.lookY }); continue; }
+      const w = open() && !G.SEQ.running ? windowFor(h) : null;
+      const inRange = Math.hypot(pl.pos.x - (h.pos.x || 0), pl.pos.z - (h.pos.z || 0)) < 140;
+      if (!w) { h.root.visible = false; h.active = false; continue; }
+      if (!h.active) { const p0 = w[2][0]; h.pos.set(p0[0], p0[1], p0[2]); h.wp = 0; h.active = true; }
+      h.root.visible = inRange;
+      const [, , pts, pose] = w, tgt = pts[h.wp % pts.length];
+      if (h.talkLock > 0) { h.talkLock -= dt; h.pose = 'idle'; h.speed = 0; }
+      else if (h.wait > 0) { h.wait -= dt; h.pose = pose === 'walk' ? 'idle' : pose === 'play' ? (Math.sin(game().t * 3 + h.pos.x) > 0 ? 'wave' : 'idle') : pose; h.speed = 0; }
+      else if (G.Kit.moveH(h, tgt[0], tgt[2], pose === 'play' ? 2.2 : 1.1, dt)) { h.wait = pose === 'walk' ? 2.2 : 5 + Math.random() * 6; h.wp++; }
+      else h.pose = 'idle';
+      // wave at Ellie when she's nearby
+      const E = C().ellie;
+      if (E && E.root.visible && Math.hypot(E.pos.x - h.pos.x, E.pos.z - h.pos.z) < 6 && !h.waved) { h.waved = 12; h.pose = 'wave'; h.talkLock = 1.5; }
+      if (h.waved) h.waved = Math.max(0, h.waved - dt);
+      // look at Milo when he's close
+      const d = Math.hypot(pl.pos.x - h.pos.x, pl.pos.z - h.pos.z);
+      h.lookY = d < 4 ? U.angDiff(h.yaw, Math.atan2(pl.pos.x - h.pos.x, pl.pos.z - h.pos.z)) : 0;
+      if (h.root.visible) h.update(dt, { lookY: h.lookY, talking: UI().dialogueOpen && G.UI.history.length && G.UI.history[G.UI.history.length - 1].who === id });
+    }
+    // keep the interaction points on the humans
+    for (const id in FOLK) { const it = T.folkIt[id]; if (!it) continue; const h = FOLK[id]; it.pos[0] = h.pos.x; it.pos[1] = h.pos.y + 0.2; it.pos[2] = h.pos.z; }
+  });
+
+  /* talking to the townsfolk (Milo sniffs their boots; they talk to him) */
+  const FOLK_LINES = {
+    baker: () => {
+      const t = hour();
+      if (t < 9) return [['baker', 'Up with the lark, little one? First batch is in. Mind your whiskers, the trays are hot.', 'happy']];
+      return [['baker', pick(['A ferret! In MY doorway. Don’t even think about the iced buns.', 'The posh cat gets a bun every morning. She has never once said thank you.', 'I heard you found Soot a book. That was kind. She’s a funny little thing.']), 'happy']];
+    },
+    postie: () => [['postie', pick(['Morning! Nothing for you today, I’m afraid. Ferrets don’t get much post.', 'Number 3’s got a parcel. Big one. Shaped like a trampoline.', 'Seen Biscuit at the stop? I always give him a biscuit. Seems only right.']), 'happy']],
+    gardener: () => [['gardener', pick(['Hello, friend. Mind the beans; they’re doing their best.', 'The hedgehogs keep the slugs off. You can stay if you keep the pigeons off.', 'Best carrots in Larkspur, these. Don’t you go pinching one.']), 'happy']],
+    lollipop: () => [['lollipop', pick(['Stop, look, listen. That goes for ferrets too.', 'Thirty-one years on this crossing. Never lost a child. Nearly lost a duck once.', 'Hello, sweetheart. Wait for my lollipop.']), 'happy']],
+    kid1: () => [['kid1', pick(['A FERRET! Priya, a FERRET!', 'Can it go down the slide? Can it?', 'I’m calling him Captain Noodle.']), 'happy']],
+    kid2: () => [['kid2', pick(['He’s so soft! Is he yours? Is he anyone’s?', 'Miss says we can’t bring pets. He brought himself though.', 'He’s got a stripe on his nose!']), 'happy']],
+    kid3: () => [['kid3', pick(['Olly says hello. I’m Olly.', 'Do ferrets like crisps?', 'Tag! You’re it! ...He’s not chasing me.']), 'happy']],
+  };
+  T.folkIt = {};
+  for (const id in ROUTINES) {
+    const it = { id: 'folk_' + id, pos: [0, -999, 0], r: 1.2, label: () => (id.startsWith('kid') ? 'Say hello to ' + G.NAMES[id] : 'Sniff ' + G.NAMES[id] + '’s boots'), anim: 'sniff',
+      when: () => { const h = FOLK[id]; return !!h && h.root.visible && !h.chase && !(C().chaser) && !G.SEQ.running; },
+      act: () => { const h = FOLK[id]; h.talkLock = 5; h.yaw = Math.atan2(game().player.pos.x - h.pos.x, game().player.pos.z - h.pos.z); game().say(FOLK_LINES[id]()); } };
+    T.folkIt[id] = it; add(it);
+  }
+
+  /* ---- stealing from the baker or the gardener starts a chase (humans.js) */
+  { const Cc = () => G.Cast;
+    const inTown = (pl) => pl.pos.z > 64 && pl.pos.x > -56 && pl.pos.x < 102 && pl.pos.y > -5;
+    const defs = {
+      bun: { title: '<b>Stop, thief!</b>', msg: 'Mr Crumb wants his iced bun back. Run, or hide under a market stall, a café table or a bench!', escaped: '"Where did that ferret go? ...Well. Enjoy the bun, you scamp."', far: 14, speed: 2.5, direct: true, maxT: 30, outOfArea: (pl) => !inTown(pl) },
+      carrot: { title: '<b>Oi! My carrot!</b>', msg: 'Mr Okafor is after you. Duck under the shed or the wheelbarrow, or just outrun him!', escaped: '"Fine. Keep it. You earned it, you little rascal."', far: 13, speed: 2.35, direct: true, maxT: 30, outOfArea: (pl) => !inTown(pl) },
+    };
+    for (const why in defs) {
+      const d = defs[why];
+      d.onEscaped = () => { const s = S(); s.town = s.town || {}; s.town['escaped_' + why] = (s.town['escaped_' + why] || 0) + 1; award('ach_escape_' + why); };
+      d.caught = async (h) => {
+        const k = K();
+        await k.talk([[h.id, why === 'bun' ? 'GOT you! That bun is for a paying customer, sir.' : 'Caught you! Hand over that carrot.', 'surprised']]);
+        h.pose = 'hug'; await k.wait(0.8);
+        await k.talk([[h.id, why === 'bun' ? '...Oh, go on then. Half each. Don’t tell the cat.' : '...You know what? Have it. Just leave the rest for the rabbits.', 'happy']]);
+        Cc().carried = null; k.putDown(h); h.pose = 'idle';
+      };
+      if (G.Cast) G.Cast.chaseDefs[why] = d;
+      else { const oI = G.EXT.init; G.EXT.init = function (g) { oI(g); G.Cast.chaseDefs[why] = d; }; }
+    }
+    add({ id: 'tw_bun', pos: [57.4, 0.5, 72.2], r: 1.0, label: 'Pinch an iced bun', anim: 'eat',
+      when: () => open() && FOLK.baker && FOLK.baker.root.visible && !Cc().chaser,
+      act: () => { A.play('eat'); game().give('treat'); flag('stoleBun'); award('ach_bun'); setTimeout(() => Cc().startChase(FOLK.baker, 'bun'), 500); } });
+    add({ id: 'tw_carrot', pos: [-34.5, 0.2, 115.4], r: 1.0, label: 'Tug up a carrot', anim: 'dig',
+      when: () => open() && FOLK.gardener && FOLK.gardener.root.visible && !Cc().chaser,
+      act: () => { A.play('dig'); game().give('treat'); flag('stoleCarrot'); setTimeout(() => Cc().startChase(FOLK.gardener, 'carrot'), 500); } });
+  }
+
+  /* ================================================================ THE LITTLE TRAIN
+     Passes along the embankment every few minutes; the crossing flashes
+     and dings while it comes through. */
+  const TR = (T.train = { m: null, x: 90, state: 'away', timer: 40 });
+  function makeTrain() {
+    if (TR.m) return TR.m;
+    const g = new THREE.Group();
+    const body = (w, h, d, c, x, y) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M.std('train' + c.toString(16), { color: c, rough: 0.5, metal: 0.15 })); m.position.set(x, y, 0); m.castShadow = true; g.add(m); return m; };
+    body(4.2, 1.5, 1.8, 0x2f5f4a, 0, 1.25);                 // engine
+    body(1.6, 0.8, 1.9, 0x1c1c1e, -1.1, 2.3);                // cab roof
+    body(0.2, 0.6, 1.2, 0xd4a347, 2.2, 1.1);                 // brass buffer beam
+    const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.7, 10), M.std('trainChim', { color: 0x1c1c1e, rough: 0.6 })); chim.position.set(1.4, 2.3, 0); g.add(chim);
+    for (let c = 1; c <= 2; c++) { body(4.6, 1.6, 1.9, [0xa8342a, 0xc9a13a][c - 1], -c * 5.0, 1.3); body(4.7, 0.12, 2.0, 0xf2ebe0, -c * 5.0, 2.14);
+      for (let i = 0; i < 3; i++) for (const s of [-1, 1]) { const w2 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.03), M.get('glass')); w2.position.set(-c * 5.0 - 1.4 + i * 1.4, 1.6, s * 0.96); g.add(w2); } }
+    for (let i = 0; i < 9; i++) { const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 2.0, 12), M.std('trainWheel', { color: 0x2a2a2e, rough: 0.6, metal: 0.4 })); wh.rotation.x = Math.PI / 2; wh.position.set(1.4 - i * 1.55, 0.62, 0); g.add(wh); }
+    g.traverse((m) => (m.userData.dynamic = true));
+    g.visible = false; W.root.add(g);
+    return (TR.m = g);
+  }
+  let dingT = 0;
+  SQ.tick((dt, s, st) => {
+    if (st !== 'play' || !G.game || !R.byId.allot.built) return;
+    const m = makeTrain();
+    TR.timer -= dt;
+    if (TR.state === 'away' && TR.timer <= 0) { TR.state = 'warning'; TR.warn = 5; TR.x = 70; }
+    if (TR.state === 'warning') { TR.warn -= dt; if (TR.warn <= 0) { TR.state = 'passing'; m.visible = true; } }
+    if (TR.state === 'passing') {
+      TR.x -= dt * 9;
+      if (TR.x < -80) { TR.state = 'away'; m.visible = false; TR.timer = 150 + Math.random() * 60; }
+    }
+    if (m.visible) m.position.set(TR.x, 0.3, 142);
+    // flashing lights and the bell while the train is due or passing
+    const flashing = TR.state === 'warning' || (TR.state === 'passing' && TR.x > -40);
+    const on = flashing && Math.floor(game().t * 3) % 2;
+    for (const L of T.crossLights || []) {
+      const lit = flashing && (L.side > 0 ? on : !on);
+      L.m.material = lit ? M.std('crossLampOn', { color: 0xff3a2a, emissive: 0xff2a1a, ei: 2.2, rough: 0.3 }) : M.std('crossLampOff', { color: 0x6a2a24, rough: 0.5 });
+    }
+    if (flashing) { dingT -= dt; if (dingT <= 0) { dingT = 0.6; const p = game().player.pos, d = Math.hypot(p.x + 26, p.z - 142); if (d < 60) A.play('ding', U.clamp(1 - d / 60, 0.1, 1)); } }
+    // the train is solid while passing: Milo waits at the crossing like everyone else
+    if (TR.state === 'passing' && Math.abs(TR.x + 26) < 8) {
+      const p = game().player.pos;
+      if (Math.abs(p.z - 142) < 1.6 && p.x > TR.x - 12 && p.x < TR.x + 3) { p.z = p.z < 142 ? 140.2 : 143.8; A.play('squeak'); award('ach_train'); }
+    }
+  });
+
+  /* ================================================================ THE SCHOOL DAY
+     Bell at nine, at lunchtime and at half past three; the swings swing
+     while the children play; the lock gates ease open and shut. */
+  let lastBell = -1;
+  SQ.tick((dt, s, st) => {
+    if (st !== 'play' || !G.game) return;
+    const t = hour();
+    if (R.byId.school.built) {
+      const bellAt = [9, 12, 15.5].find((b) => t >= b && t < b + 0.05);
+      if (bellAt !== undefined && lastBell !== bellAt) {
+        lastBell = bellAt;
+        const p = game().player.pos, d = Math.hypot(p.x - 41, p.z - 118);
+        if (d < 80) for (let i = 0; i < 8; i++) setTimeout(() => A.play('shopbell', U.clamp(1 - d / 90, 0.2, 1)), i * 160);
+      }
+      const playing = t >= 12 && t < 16;
+      for (const sw of T.swings || []) { sw.ph += dt * 1.9; sw.g.rotation.x = playing ? Math.sin(sw.ph) * 0.55 : Math.sin(sw.ph * 0.4) * 0.04; }
+    }
+    if (R.byId.canal.built) for (const gt of T.lockGates || []) {
+      gt.phase = (gt.phase || 0) + dt * 0.02;
+      const want = (Math.sin(gt.phase + (gt.side > 0 ? 3 : 0)) > 0 ? 0.5 : 0.02) * gt.half;
+      gt.g.rotation.y = U.damp(gt.g.rotation.y, want, 0.6, dt);
+    }
+  });
+
+  /* ================================================================ BURROWS, MAP, ADMIN */
+  SQ.travelSpots.push(
+    ['allotments', 'The Allotments', [-12, 0, 114], Math.PI],
+    ['school', 'The School', [22, 0, 114], Math.PI],
+    ['canal', 'The Canal', [-20, 0, 158], Math.PI / 2],
+  );
+  const mv = SQ.mapViews.town; if (mv) mv.bounds = [-56, 104, 60, 182];
+  { const oDraw = mv && mv.draw;
+    if (mv) mv.draw = (c, X, Z, sc, s) => {
+      if (oDraw) oDraw(c, X, Z, sc, s);
+      c.fillStyle = 'rgba(80,120,150,.75)'; c.fillRect(X(-54), Z(162), (154) * sc, 8 * sc);
+      c.strokeStyle = 'rgba(60,50,40,.7)'; c.lineWidth = 2; c.setLineDash([4, 3]); c.beginPath(); c.moveTo(X(-54), Z(142)); c.lineTo(X(2), Z(142)); c.stroke(); c.setLineDash([]);
+    }; }
+  (G.AdminExtras = G.AdminExtras || []).push(({ group, close, toast }) => {
+    const add2 = group('Town (south)');
+    const go = (label, pos, yaw) => add2(label, () => { close(); flag('townSeen'); game().travel(pos, yaw || 0); });
+    go('The Allotments', [-12, 0, 114], Math.PI);
+    go('The level crossing', [-26, 0, 137], Math.PI);
+    go('The School', [22, 0, 114], Math.PI);
+    go('The playground', [18, 0, 126], Math.PI);
+    go('The Canal', [-20, 0, 158], Math.PI / 2);
+    go('Larkspur Lock', [38, 0, 157.6], 0);
+    add2('Send the train now', () => { T.train.timer = 0; T.train.state = 'away'; close(); toast('<b>Admin</b>', null, 'The 4:15 is on its way.'); });
+    add2('Set time: 3pm (school out)', () => { S().time = 15; close(); });
+  });
+
+  /* discovering the new areas opens their burrow exits */
+  SQ.trigger(() => { const p = game().player.pos; return open() && p.z > 110 && p.z < 150 && p.x < 0; }, () => { S().discovered.allotments = true; }, true);
+  SQ.trigger(() => { const p = game().player.pos; return open() && p.z > 110 && p.z < 150 && p.x > 2 && p.x < 60; }, () => { S().discovered.school = true; }, true);
+  SQ.trigger(() => { const p = game().player.pos; return open() && p.z > 152 && p.z < 180; }, () => { S().discovered.canal = true; }, true);
+  SQ.trigger(() => { const p = game().player.pos; return open() && p.z > 66 && p.x > 44 && p.x < 100 && p.z < 108; }, () => { S().discovered.townsquare = true; }, true);
+})();
+
+/* game.js creates G.NAMES when it loads, after this file, so the town's
+   speakers register their names at init like the other expansion files do */
+(function () {
+  const TOWN_NAMES = {
+    duchess: 'Duchess', gossip: 'Gossip', gary: 'Gary', soot: 'Soot', biscuit: 'Biscuit',
+    mrsbram: 'Mrs Brambling', junior: 'Bramble Junior', hoglet0: 'Bramble Minor', hoglet1: 'Thistle', hoglet2: 'Burr',
+    rusty: 'Rusty', quack: 'Captain Quack', nibbles: 'Nibbles',
+    baker: 'Mr Crumb', postie: 'Pat the Postie', gardener: 'Mr Okafor', lollipop: 'Mrs Pennywhistle', kid1: 'Sam', kid2: 'Priya', kid3: 'Olly',
+  };
+  G.Town.names = TOWN_NAMES;
+  const oInit = G.EXT.init;
+  G.EXT.init = function (g) { oInit(g); Object.assign(G.NAMES, TOWN_NAMES); };
+})();
+
+/* =====================================================================
+   world-town.js (part five) - two drain-pipe shortcuts, and the high
+   street shutting up shop at night.
+   Crawl tunnels here follow the game's own pattern: they are small
+   pockets in the underground layer, joined to the surface by travel().
+   ===================================================================== */
+(function () {
+  const U = G.U, M = G.Mat, A = G.Audio, W = G.World, UG = W.UG, R = G.Regions, SQ = G.SQ, T = G.Town;
+  const game = () => G.game, S = () => G.game.S, UI = () => G.UI;
+  const open = () => T.open();
+  const add = (o) => G.INTERACT.push(o);
+
+  /* ================================================================ THE TOWN DRAINS */
+  R.def({
+    id: 'towndrains', ug: true, name: 'The Town Drains', bounds: [148, 192, 68, 112],
+    areas: [
+      ['tdCulvert', 'The Birch Lane Culvert', 146, 156, 68, 92, { ug: true, zone: 'under', surf: 'stone', dark: true }],
+      ['tdOldPipe', 'The Old Pipe', 166, 176, 68, 92, { ug: true, zone: 'under', surf: 'stone', dark: true }],
+    ],
+    build(ctx) {
+      const { H } = ctx, root = ctx.root;
+      const trickle = M.std('trickle', { color: 0x2d4a52, rough: 0.05, metal: 0.2, transparent: true, opacity: 0.6, envI: 1 });
+      /* the culvert under Birch Lane, out to the canal */
+      H.tunnel('TCULV', [[150, UG, 70], [150, UG, 74], [153, UG, 77], [153, UG, 84], [150, UG, 87], [150, UG, 90]]);
+      H.plane(149.6, 150.4, 70, 74, UG + 0.012, trickle, 1); H.plane(152.6, 153.4, 77, 84, UG + 0.012, trickle, 1);
+      // a lost tennis ball and a pram wheel, washed down years ago
+      H.sph({ x: 153.2, y: UG + 0.07, z: 80.4, r: 0.07, mat: M.std('tennis', { color: 0xc8d84a, rough: 0.9 }) });
+      H.cyl({ r: 0.16, h: 0.04, x: 150.3, y: UG + 0.16, z: 88.4, mat: 'darkmetal', rx: Math.PI / 2.4, col: false });
+      /* the old pipe from the Town Square out to the school field */
+      H.tunnel('TPIPE', [[170, UG, 70], [172, UG, 74], [172, UG, 82], [170, UG, 86], [172, UG, 90]]);
+      H.plane(171.6, 172.4, 74, 82, UG + 0.012, trickle, 1);
+      // chalk marks: generations of children have dared each other down here
+      const tex = R.text('pipeChalk', 256, 128, (g2, W2, H2) => { g2.clearRect(0, 0, W2, H2); g2.strokeStyle = 'rgba(240,236,220,.85)'; g2.lineWidth = 4; g2.font = 'bold 30px Georgia'; g2.fillStyle = 'rgba(240,236,220,.85)'; g2.fillText('S.P. 1998', 16, 44); g2.fillText('WAS HERE', 60, 96); g2.beginPath(); g2.arc(210, 60, 26, 0, 7); g2.stroke(); });
+      const ch = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.3), new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 1 }));
+      ch.position.set(171.55, UG + 0.4, 78); ch.rotation.y = Math.PI / 2; root.add(ch);
+      H.light(152, UG + 0.4, 80, 0x6fe0c4, 0.5, 3, { ug: true }); H.light(171, UG + 0.4, 80, 0x6fe0c4, 0.5, 3, { ug: true });
+    },
+  });
+  T.regions.towndrains = R.byId.towndrains;
+
+  /* surface ends: a grate on Birch Lane, one on the towpath, and two pipe mouths */
+  const grate = (ctx, x, z, ry = 0) => {
+    const g = new THREE.Group(); g.position.set(x, 0.015, z); g.rotation.y = ry; ctx.root.add(g);
+    const gp = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.45), M.color(0x0c0908, 1)); gp.rotation.x = -Math.PI / 2; g.add(gp);
+    for (let i = 0; i < 6; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.45), M.get('darkmetal')); b.position.set(-0.3 + i * 0.12, 0.01, 0); g.add(b); }
+    W.noGrass.push([x - 0.5, x + 0.5, z - 0.4, z + 0.4, 1]);
+  };
+  const pipeMouth = (ctx, x, z, ry) => {
+    const pm = ctx.H.cyl({ r: 0.42, h: 0.8, x, y: 0.2, z, mat: 'concrete', rx: Math.PI / 2, ry, open: true, col: false });
+    pm.material = pm.material.clone(); pm.material.side = THREE.DoubleSide;
+    const dk = new THREE.Mesh(new THREE.CircleGeometry(0.36, 16), M.color(0x0c0908, 1)); dk.position.set(x - Math.sin(ry) * 0.2, 0.42, z - Math.cos(ry) * 0.2); dk.rotation.y = ry; ctx.root.add(dk);
+    W.collider(x - 0.45, x + 0.45, z - 0.45, z + 0.45, 0, 0.62, { climb: true, cam: false });
+  };
+  // R.build hashes colliders before onBuilt runs, so hash whatever these add
+  const onBuilt = (id, fn) => { const d = R.byId[id], o = d.onBuilt; d.onBuilt = function (g, ctx) {
+    if (o) o.call(this, g, ctx);
+    const c0 = W.colliders.length;
+    W.withRoot(d.group, () => fn(Object.assign({}, ctx, { root: d.group })));
+    for (let i = c0; i < W.colliders.length; i++) g.hashC(W.colliders[i], i);
+  }; };
+  onBuilt('birch', (ctx) => grate(ctx, 13.2, 89.2));
+  onBuilt('canal', (ctx) => grate(ctx, 14, 157.4));
+  onBuilt('square', (ctx) => pipeMouth(ctx, 46.2, 101.6, -Math.PI / 2));
+  onBuilt('school', (ctx) => pipeMouth(ctx, 55.4, 146.2, Math.PI / 2));
+
+  const firstVisit = (key, msg) => { const s = S(); if (s.flags['visit_' + key]) return; game().flag('visit_' + key); A.play('secret'); UI().toast('<b>Secret place</b>', null, msg); if (G.Extras && G.Extras.award) G.Extras.award('ach_drains'); };
+  add({ id: 'td_grateIn', pos: [13.2, 0, 89.2], r: 0.85, label: 'Squeeze through the drain grate', anim: 'sniff', when: () => open(),
+    act: () => game().travel([150, UG, 70.4], 0, () => firstVisit('culvert2', 'The Birch Lane culvert. It runs all the way down to the canal, and it smells like it.')) });
+  add({ id: 'td_grateBack', pos: [150, UG, 70.3], r: 0.6, label: 'Climb up to Birch Lane', act: () => game().travel([13.2, 0, 88.6], Math.PI) });
+  add({ id: 'td_culvEnd', pos: [150, UG, 89.7], r: 0.6, label: 'Crawl out onto the towpath', act: () => game().travel([14, 0, 158.2], Math.PI) });
+  add({ id: 'td_towIn', pos: [14, 0, 157.4], r: 0.85, label: 'Squeeze into the culvert', anim: 'sniff', when: () => open(), act: () => game().travel([150, UG, 89.4], Math.PI) });
+  add({ id: 'td_pipeIn', pos: [46.2, 0.2, 101.6], r: 0.9, label: 'Crawl into the old pipe', anim: 'sniff', when: () => open(),
+    act: () => game().travel([170, UG, 70.4], 0, () => firstVisit('oldpipe', 'The old pipe. Somebody has chalked their initials down here. Generations of somebodies.')) });
+  add({ id: 'td_pipeBack', pos: [170, UG, 70.3], r: 0.6, label: 'Crawl back to the Town Square', act: () => game().travel([47.2, 0, 101.6], Math.PI / 2) });
+  add({ id: 'td_pipeEnd', pos: [172, UG, 89.7], r: 0.6, label: 'Pop out on the school field', act: () => game().travel([54.4, 0, 146.2], -Math.PI / 2) });
+  add({ id: 'td_fieldIn', pos: [55.4, 0.2, 146.2], r: 0.9, label: 'Crawl into the old pipe', anim: 'sniff', when: () => open(), act: () => game().travel([172, UG, 89.4], Math.PI) });
+
+  /* ================================================================ THE HIGH STREET AT NIGHT
+     After eight in the evening and before seven in the morning the shop
+     doors are shut and a CLOSED sign hangs in each. The cat flap into the
+     bakery still works, of course. */
+  T.nightDoors = [];
+  onBuilt('square', (ctx) => {
+    const tex = R.text('closedSign', 128, 64, (g2, W2, H2) => { g2.fillStyle = '#f6f2e8'; g2.fillRect(0, 0, W2, H2); g2.strokeStyle = '#8a1a1a'; g2.lineWidth = 4; g2.strokeRect(3, 3, W2 - 6, H2 - 6); g2.fillStyle = '#8a1a1a'; g2.font = 'bold 26px Georgia'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText('CLOSED', W2 / 2, H2 / 2 + 2); });
+    for (const id in T.shopDoors) {
+      const d = T.shopDoors[id];
+      const g = new THREE.Group(); g.position.set(d.x, 0, d.z + 0.04); ctx.root.add(g);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(1.3, 2.2, 0.06), M.std('shopDoorNight', { color: 0x3a2f24, rough: 0.6, map: 'paintwood' }));
+      panel.position.y = 1.1; panel.castShadow = true; g.add(panel);
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.23), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }));
+      sign.position.set(0, 1.45, 0.04); g.add(sign);
+      g.traverse((m) => (m.userData.dynamic = true)); g.visible = false;
+      const col = W.collider(d.x - 0.66, d.x + 0.66, d.z - 0.1, d.z + 0.1, 0, 2.2, { cam: false, name: 'shutDoor_' + id });
+      col.on = false;
+      T.nightDoors.push({ g, col, id });
+    }
+  });
+  T.shopsOpen = () => { const t = S().time || 12; return t >= 7 && t < 20; };
+  SQ.tick((dt, s, st) => {
+    if (!G.game || !T.nightDoors.length) return;
+    const shut = !T.shopsOpen();
+    for (const d of T.nightDoors) {
+      if (d.col.on === shut) continue;
+      // never shut a door on top of Milo
+      const p = game().player.pos;
+      if (shut && Math.abs(p.x - (d.col.x0 + d.col.x1) / 2) < 1 && Math.abs(p.z - d.col.z0) < 0.6) continue;
+      d.col.on = shut; d.g.visible = shut;
+    }
+  });
 })();

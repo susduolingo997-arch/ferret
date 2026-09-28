@@ -182,6 +182,7 @@
     handPos(out) { this.root.updateMatrixWorld(true); const a = V3(), b = V3(); this.arms[0].hand.getWorldPosition(a); this.arms[1].hand.getWorldPosition(b); return out.copy(a).add(b).multiplyScalar(0.5); }
   }
   G.Human = Human;
+  G.HumanLooks = LOOKS; // new files (world-town.js) register extra townsfolk here
 
   /* ================================================================ movement helpers */
   function moveH(h, tx, tz, sp, dt, collide = true) {
